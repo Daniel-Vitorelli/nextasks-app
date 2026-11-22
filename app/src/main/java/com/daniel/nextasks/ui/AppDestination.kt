@@ -8,9 +8,9 @@ import com.daniel.nextasks.data.Addon
 /**
  * Seções de nível superior do NexTasks.
  *
- * Espelha os destinos do app web (home, dashboard, calendar, ai, social, gamification, config).
- * São 8 destinos — acima do limite de 5 de uma barra inferior — por isso a navegação
- * principal é um [androidx.compose.material3.ModalNavigationDrawer].
+ * São 9 destinos — acima do limite de 5 de uma barra inferior — por isso a navegação
+ * principal é um [androidx.compose.material3.ModalNavigationDrawer]. Três deles
+ * (Conexões, IA e Gamificação) são addons e só aparecem depois de ligados.
  */
 enum class AppDestination(
     @StringRes val label: Int,

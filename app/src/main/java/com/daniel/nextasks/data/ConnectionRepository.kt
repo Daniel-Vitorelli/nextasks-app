@@ -40,6 +40,26 @@ class ConnectionRepository(context: Context) {
         store.updateData { current -> current.filterNot { it.blockId == blockId } }
     }
 
+    /** Remove as conexões de uma rotina excluída (todos os blocos dela). */
+    suspend fun clearForRoutine(routineId: String) {
+        store.updateData { current -> current.filterNot { it.routineId == routineId } }
+    }
+
+    /**
+     * Remove as conexões de uma tarefa e das sub-tarefas dela.
+     *
+     * Excluir a tarefa leva a árvore inteira junto, então as conexões das
+     * sub-tarefas ficariam apontando para ids que não existem mais.
+     */
+    suspend fun clearForTask(taskId: String, subtaskIds: Collection<String> = emptyList()) {
+        store.updateData { current ->
+            current.filterNot { link ->
+                link.taskId == taskId ||
+                    (link.subtaskId != null && link.subtaskId in subtaskIds)
+            }
+        }
+    }
+
     /**
      * Remove conexões cujo bloco ou entidade não existe mais.
      *
@@ -62,30 +82,36 @@ class ConnectionRepository(context: Context) {
         }
     }
 
-    /** Remove as conexões que apontam para uma entidade excluída. */
-    suspend fun clearForEntity(taskId: String? = null, subtaskId: String? = null, habitId: String? = null) {
+    /** Remove as conexões de sub-tarefas excluídas (a sub-árvore inteira). */
+    suspend fun clearForSubtasks(subtaskIds: Collection<String>) {
+        if (subtaskIds.isEmpty()) return
         store.updateData { current ->
-            current.filterNot {
-                (taskId != null && it.taskId == taskId) ||
-                    (subtaskId != null && it.subtaskId == subtaskId) ||
-                    (habitId != null && it.habitId == habitId)
-            }
+            current.filterNot { link -> link.subtaskId != null && link.subtaskId in subtaskIds }
         }
+    }
+
+    /** Remove as conexões que apontam para um hábito excluído. */
+    suspend fun clearForHabit(habitId: String) {
+        store.updateData { current -> current.filterNot { it.habitId == habitId } }
     }
 }
 
 /**
- * Efeitos de uma conexão depois que o usuário age.
+ * Efeitos de uma conexão depois que o usuário age — nos dois sentidos.
  *
- * Só o sentido **bloco → entidade**: confirmar o bloco o suficiente conclui a
- * tarefa/sub-tarefa ou fecha a meta do hábito. O sentido inverso (concluir a
- * entidade confirmar o bloco) ainda não existe no app.
+ * - **Bloco → entidade** ([onBlockConfirmed]): confirmar o bloco o suficiente
+ *   conclui a tarefa/sub-tarefa ou fecha a meta do hábito.
+ * - **Entidade → bloco** ([onTaskDone], [onSubtaskDone], [onHabitDone]):
+ *   concluir a entidade confirma o bloco no período atual.
+ *
+ * A conclusão de tarefa passa por [TaskCompletion] para não perder a cascata das
+ * sub-tarefas — era exatamente o que faltava aqui.
  */
 class ConnectionEngine(
     private val connectionRepository: ConnectionRepository,
     private val completionRepository: CompletionRepository,
     private val routineRepository: RoutineRepository,
-    private val taskRepository: TaskRepository,
+    private val taskCompletion: TaskCompletion,
     private val subtaskRepository: SubtaskRepository,
     private val habitRepository: HabitRepository,
     private val settingsRepository: SettingsRepository,
@@ -158,7 +184,8 @@ class ConnectionEngine(
 
     private suspend fun advance(link: Connection, today: LocalDate) {
         link.taskId?.let { id ->
-            taskRepository.setDone(id, true)
+            // Pelo TaskCompletion: concluir a tarefa tem que concluir as sub-tarefas.
+            taskCompletion.setDone(id, true)
             return
         }
 

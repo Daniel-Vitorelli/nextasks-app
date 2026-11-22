@@ -12,8 +12,8 @@ android {
         applicationId = "com.daniel.nextasks"
         minSdk = 26
         targetSdk = 37
-        versionCode = 55
-        versionName = "3.34"
+        versionCode = 56
+        versionName = "3.35"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

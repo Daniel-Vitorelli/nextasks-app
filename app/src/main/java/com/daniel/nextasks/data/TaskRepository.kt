@@ -58,13 +58,14 @@ class TaskRepository(context: Context) {
             if (original == null) {
                 current
             } else {
-                copy = original.copy(
+                val duplicated = original.copy(
                     id = UUID.randomUUID().toString(),
                     title = "${original.title} (cópia)",
                     done = false,
                     createdAt = System.currentTimeMillis(),
                 )
-                current + copy!!
+                copy = duplicated
+                current + duplicated
             }
         }
         return copy

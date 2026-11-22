@@ -54,11 +54,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
+import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.Subtask
 import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.Task
+import com.daniel.nextasks.data.TaskCompletion
 import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.TaskSortSettings
+import com.daniel.nextasks.data.descendantIds
 import com.daniel.nextasks.ui.components.dashedCard
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -73,6 +76,10 @@ import java.util.UUID
 fun TasksScreen(
     repository: TaskRepository,
     subtaskRepository: SubtaskRepository,
+    /** Conclusão de tarefa com a cascata das sub-tarefas. */
+    taskCompletion: TaskCompletion,
+    /** Conexões: limpar as órfãs ao excluir tarefa/sub-tarefa. */
+    connectionRepository: ConnectionRepository,
     /** Mesma ordem configurada para a Home. */
     taskSort: TaskSortSettings = TaskSortSettings(),
     /** Avisa as conexões que a tarefa foi concluída. */
@@ -175,13 +182,8 @@ fun TasksScreen(
                         onToggle = {
                             scope.launch {
                                 // Concluir a tarefa conclui as sub-tarefas (como no web).
-                                if (task.done) {
-                                    repository.setDone(task.id, false)
-                                } else {
-                                    repository.setDone(task.id, true)
-                                    subtaskRepository.completeAllForTask(task.id)
-                                    onTaskDone(task.id)
-                                }
+                                taskCompletion.setDone(task.id, !task.done)
+                                if (!task.done) onTaskDone(task.id)
                             }
                         },
                         onEdit = {
@@ -222,9 +224,12 @@ fun TasksScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        val subtaskIds = subtasks.filter { it.taskId == task.id }.map { it.id }
                         scope.launch {
                             repository.delete(task.id)
                             subtaskRepository.deleteForTask(task.id)
+                            // A árvore foi junto: as conexões não têm mais dono.
+                            connectionRepository.clearForTask(task.id, subtaskIds)
                         }
                         deleteTarget = null
                     },
@@ -275,11 +280,13 @@ fun TasksScreen(
                 TextButton(
                     onClick = {
                         subtaskDeleteTarget = null
+                        val removed = subtasks.descendantIds(sub.id) + sub.id
                         scope.launch {
                             val shouldBeDone = subtaskRepository.delete(sub.id)
                             if (shouldBeDone != null) {
                                 repository.setDone(sub.taskId, shouldBeDone)
                             }
+                            connectionRepository.clearForSubtasks(removed)
                         }
                     },
                 ) {

@@ -20,7 +20,13 @@ data class SubtaskCascade(
 private fun List<Subtask>.childrenOf(parentId: String?): List<Subtask> =
     filter { it.parentId == parentId }
 
-private fun List<Subtask>.descendantIds(id: String): Set<String> {
+/**
+ * Ids de toda a sub-árvore abaixo de [id], sem incluir o próprio nó.
+ *
+ * Público porque excluir um nó leva os descendentes junto: quem chama precisa
+ * saber quais conexões ficaram sem dono.
+ */
+fun List<Subtask>.descendantIds(id: String): Set<String> {
     val result = mutableSetOf<String>()
     val stack = childrenOf(id).map { it.id }.toMutableList()
     while (stack.isNotEmpty()) {

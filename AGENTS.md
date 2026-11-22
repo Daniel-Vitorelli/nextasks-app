@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.34`, `versionCode 55` |
-| Tamanho | ~78 arquivos Kotlin, ~16.500 linhas, 452 strings |
+| Versão atual | `versionName 3.35`, `versionCode 56` |
+| Tamanho | ~81 arquivos Kotlin, ~16.700 linhas, 438 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -47,7 +47,12 @@ export ANDROID_HOME="/c/Users/Daniel/Android/Sdk"
 
 cd /c/Users/Daniel/programacao/app
 ./gradlew assembleDebug          # gera app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest      # regras puras em JVM (sem emulador)
 ```
+
+Os testes ficam em `app/src/test/` e cobrem as regras que já causaram bug:
+`SubtaskCascade`, `HabitStats`, `Connection`, `RoutineSchedule`, ordenação de tarefas
+e horário dos blocos. Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
 
@@ -74,8 +79,10 @@ ui/      telas Compose (uma por seção) + componentes + tema
 | Arquivo | Papel |
 |---|---|
 | `JsonListSerializer.kt` | Serializer genérico de `List<T>` em JSON |
+| `Dates.kt` | Parse de data/hora tolerante (`parseIsoDate`, `parseIsoTime`) |
 | `*Repository.kt` | Um por entidade; expõe `Flow<List<T>>` e funções de escrita |
-| `*Stats.kt`, `SubtaskCascade.kt`, `TaskSort.kt` | Regras puras (sem Android) |
+| `*Stats.kt`, `SubtaskCascade.kt`, `TaskSort.kt`, `RoutineSchedule.kt` | Regras puras (sem Android) |
+| `TaskCompletion.kt` | Conclusão de tarefa **com** a cascata das sub-tarefas |
 | `Connection*.kt` | Modelo, repositório, motor e sugestões de conexão |
 | `BackupService.kt` | Exporta/importa as 10 tabelas JSON |
 
@@ -233,16 +240,42 @@ Errar isso faz o progresso contar duas vezes ou nunca.
 - Confirmações **anteriores à criação** da conexão não contam (`createdOn`).
 - `dayFilter` restringe quais períodos contam; `date:` só admite meta 1.
 
-### 7.3 Sugestões de conexão
+### 7.3 Conclusão de tarefa
+
+Sempre pelo `TaskCompletion`, nunca com `TaskRepository.setDone` direto: concluir a
+tarefa **tem** que concluir todas as sub-tarefas. Home, lista de Tarefas e motor de
+Conexões chamam o mesmo ponto — antes cada tela repetia (ou esquecia) a cascata.
+
+### 7.4 Quando a rotina existe
+
+`Routine.coversDay` (`RoutineSchedule.kt`) é a única resposta para "esta rotina acontece
+neste dia?": inativa, antes do `createdAt` ou depois do `endDate` não acontece. O motor
+de ocorrências usa essa função, então calendário, Home, gráfico e heatmap concordam —
+antes o gráfico cortava pelo `createdAt` e o calendário mostrava blocos no passado.
+
+### 7.5 Sugestões de conexão
 
 Cruza nome de bloco com nome de entidade: iguais (nota 2) ou um contendo o outro com
 **pelo menos 4 letras** (nota 1). Sem esse limite, "ir" casaria com "dormir".
 Ignora pares já conectados e entidades concluídas.
 
-### 7.4 Backup
+### 7.6 Backup
 
 Exporta as 10 tabelas JSON. **Não** exporta `settings.json` (tema, cor, addons, ordem) —
-restaurar um backup não devolve preferências.
+restaurar um backup não devolve preferências. Depois de restaurar, as conexões são
+podadas: o arquivo pode trazer vínculos de blocos que não vieram junto.
+
+### 7.7 Dado ruim não derruba tela
+
+Data/hora gravada como texto pode estar inválida (backup remendado). Use
+`parseIsoDate`/`parseIsoTime` (`Dates.kt`) e trate `null` como "registro ignorado".
+`LocalDate.parse` cru só onde o valor acabou de sair de um seletor do próprio app.
+
+### 7.8 Exclusão limpa o que dependia
+
+Excluir rotina, bloco, tarefa, sub-tarefa ou hábito também apaga o que apontava para
+ele: conclusões, exceções do dia e conexões. Sem isso o `connections.json` acumula
+órfãs que só somem no próximo start.
 
 ---
 
@@ -273,7 +306,8 @@ restaurar um backup não devolve preferências.
 
 ## 10. Playbook de teste no emulador
 
-Não há testes automatizados úteis (só o esqueleto do JUnit). O teste é manual, no AVD.
+As regras puras têm teste JVM (`./gradlew testDebugUnitTest`, 59 casos). O que depende
+de Compose/DataStore continua manual, no AVD.
 
 ```bash
 # semear dados (o app lê de files/datastore/*.json)
@@ -293,7 +327,14 @@ adb shell am start -n "$COMP"
 
 **Nunca estime pela imagem.** O fator entre o que se vê e o pixel real muda com o scroll e
 já fez toques errarem por uma linha inteira (conclusão falsa de "o componente não
-responde"). Meça a faixa de texto/cor com ImageMagick e confirme qual elemento acendeu.
+responde"). O caminho confiável é `uiautomator dump` e tocar no centro dos `bounds` do nó:
+
+```bash
+adb shell uiautomator dump /sdcard/ui.xml
+adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -oE 'text="Tarefas"[^/]*bounds="[^"]*"'
+```
+
+O print (`screencap`) serve para **conferir** o resultado, não para medir o toque.
 
 ---
 
@@ -318,9 +359,9 @@ responde"). Meça a faixa de texto/cor com ImageMagick e confirme qual elemento 
 - **Gamificação e IA** são páginas placeholder — sem pontos, conquistas ou chat.
 - **Conexões**: não avisa quando duas entidades disputam o mesmo bloco (ambas avançam);
   não estima "no seu ritmo, conclui em ~N dias".
-- **Gate de conexões** com o addon desligado está implementado, mas **não foi verificado
-  em execução** (o emulador quebrou na sessão). Teste manual: com Conexões off, confirmar
-  um bloco não deve concluir a tarefa conectada.
+- **Gate de conexões** verificado em execução na v3.35: com o addon desligado, confirmar
+  o bloco grava a conclusão mas **não** conclui a tarefa conectada, e a seção some da
+  gaveta.
 - **Backup** não inclui preferências (`settings.json`).
 
 ---

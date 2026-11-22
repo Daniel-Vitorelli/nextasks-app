@@ -3,7 +3,6 @@
     <string name="app_name">NexTasks</string>
     <string name="app_tagline">Hábitos, rotinas e tarefas</string>
     <string name="open_menu">Abrir menu</string>
-    <string name="close_menu">Fechar menu</string>
 
     <string name="section_home">Início</string>
     <string name="section_calendar">Calendário</string>
@@ -38,10 +37,8 @@
     <string name="habit_icon_pick">Escolher ícone</string>
     <string name="habit_color">Cor</string>
     <string name="habit_today_count">%1$d de %2$d</string>
-    <string name="habit_done_today">Feito hoje</string>
     <string name="habit_slip_today">Recaída hoje</string>
     <string name="habit_clean_today">Dia limpo</string>
-    <string name="habit_not_scheduled">Hoje não</string>
     <string name="habit_streak">%1$d dias seguidos</string>
     <string name="habit_stat_current">Atual</string>
     <string name="habit_stat_longest">Recorde</string>
@@ -55,9 +52,6 @@
     <string name="home_habits">Hábitos de hoje</string>
     <string name="section_placeholder">Esta seção ainda está em construção.</string>
 
-    <string name="home_subtitle">Bem-vindo ao NexTasks — o seu dia começa aqui.</string>
-    <string name="home_card_title">Tudo pronto para começar</string>
-    <string name="home_card_body">A estrutura do app está montada. As telas de cada seção entram a partir daqui.</string>
 
     <string name="drawer_version">Versão %1$s</string>
     <string name="calendar_expand">Expandir mês</string>
@@ -66,7 +60,6 @@
     <string name="occurrence_edit">Editar só neste dia</string>
     <string name="occurrence_edit_extra">Editar bloco</string>
     <string name="occurrence_delete_extra">Excluir bloco</string>
-    <string name="extra_new">Novo bloco</string>
     <string name="event_new">Novo evento</string>
     <string name="menu_new_block">Bloco avulso</string>
     <string name="menu_new_event">Evento</string>
@@ -243,7 +236,6 @@
     <string name="task_start_badge">Início %1$s</string>
     <string name="task_due_badge">Prazo %1$s</string>
     <string name="task_due_date">Data limite</string>
-    <string name="task_due_date_pick">Escolher data limite</string>
     <string name="task_due_date_clear">Remover data limite</string>
     <string name="task_due_date_none">Sem data</string>
     <string name="task_details_title">Tarefa</string>
@@ -262,7 +254,6 @@
     <string name="subtask_delete_body">Excluir \"%1$s\" e todas as sub-tarefas abaixo dela? Não dá para desfazer.</string>
     <string name="subtask_title_label">Título</string>
     <string name="subtask_under">Em: %1$s</string>
-    <string name="subtask_deleted">Sub-tarefa excluída</string>
     <string name="task_done">Concluída</string>
     <string name="task_actions">Ações da tarefa</string>
     <string name="task_duplicate">Duplicar</string>
@@ -384,10 +375,6 @@
     <string name="connection_estimate_weeks">Leva cerca de %1$d semanas.</string>
     <string name="connection_date_cap">Numa data só, a meta fica em 1: o bloco é confirmado uma vez.</string>
     <string name="connections_since">desde %1$s</string>
-    <string name="connection_section_block">Bloco de tempo</string>
-    <string name="connection_section_entity">O que se conecta</string>
-    <string name="connection_section_goal">Meta</string>
-    <string name="connection_section_when">Quando conta</string>
     <string name="connection_goal_label">Confirmações necessárias</string>
     <string name="connection_goal_hint">Cada confirmação do bloco conta uma vez. Ao bater a meta, a entidade é concluída.</string>
     <string name="connection_tab_tasks">Tarefas</string>
@@ -438,7 +425,6 @@
     <string name="settings_addons_intro">Cada addon é uma página extra. Desligado, ele não ocupa espaço no menu lateral; ligado, aparece junto das seções fixas.</string>
     <string name="settings_addons_none">Nenhum ativo</string>
     <string name="settings_addons_count">%1$d ativos</string>
-    <string name="settings_addons_hint">Páginas extras, desligadas por padrão. Ao ativar, aparecem no menu lateral.</string>
     <string name="addon_ai_desc">Um assistente para conversar sobre rotinas, tarefas e hábitos.</string>
     <string name="addon_gamification_desc">Pontos, sequências e conquistas pelo que você cumpre.</string>
     <string name="settings_data">Dados</string>

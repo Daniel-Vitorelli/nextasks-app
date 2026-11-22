@@ -70,9 +70,11 @@ import com.daniel.nextasks.data.EventConfirmation
 import com.daniel.nextasks.data.RoutineRepository
 import com.daniel.nextasks.data.Task
 import com.daniel.nextasks.data.SubtaskRepository
+import com.daniel.nextasks.data.TaskCompletion
 import com.daniel.nextasks.data.TaskSortSettings
 import com.daniel.nextasks.data.SuspensionMode
 import com.daniel.nextasks.data.TaskRepository
+import com.daniel.nextasks.data.parseIsoDate
 import com.daniel.nextasks.ui.calendar.CalendarEvent
 import com.daniel.nextasks.ui.calendar.toEventColor
 import com.daniel.nextasks.ui.habits.habitIconRes
@@ -113,6 +115,8 @@ fun HomeScreen(
     extraRepository: ExtraBlockRepository,
     eventRepository: EventRepository,
     habitRepository: HabitRepository,
+    /** Conclusão de tarefa com a cascata das sub-tarefas. */
+    taskCompletion: TaskCompletion,
     /** Nome configurado em Ajustes; vazio usa a saudação genérica. */
     userName: String = "",
     /** Ordem das tarefas escolhida em Ajustes. */
@@ -183,11 +187,35 @@ fun HomeScreen(
 
     val todayEvents = remember(agendaEvents, today) {
         agendaEvents
-            .filter { !today.isBefore(it.start) && !today.isAfter(it.end) }
+            .filter { event ->
+                // Data ilegível (backup remendado) não pode derrubar a Home.
+                val start = event.start ?: return@filter false
+                val end = event.end ?: start
+                !today.isBefore(start) && !today.isAfter(end)
+            }
             .sortedBy { it.startTime ?: "" }
     }
 
     val byKey = remember(completions) { completionMap(completions) }
+
+    // Um mapa por hábito, montado uma vez por mudança nas marcações. Antes cada
+    // linha filtrava e remontava a lista inteira dentro da composição — e o relógio
+    // de 30 s recompõe a tela toda, então isso rodava o tempo inteiro.
+    val habitCountsById = remember(habitCompletions) {
+        habitCompletions
+            .groupBy { it.habitId }
+            .mapValues { (_, list) ->
+                list.mapNotNull { completion ->
+                    parseIsoDate(completion.date)?.let { it to completion.count }
+                }.toMap()
+            }
+    }
+
+    val todayHabits = remember(habits, today) {
+        habits.filter { habit ->
+            !habit.usesSchedule || (today.dayOfWeek.value % 7) in habit.daysOfWeek
+        }
+    }
 
     fun valueOf(event: CalendarEvent): String? {
         val blockId = event.blockId ?: return null
@@ -267,44 +295,31 @@ fun HomeScreen(
                 }
 
                 if (routine != null) {
-                Spacer(Modifier.height(24.dp))
-                SectionHeaderAction(
-                    label = stringResource(R.string.home_progress),
-                    icon = R.drawable.ic_chart,
-                    contentDescription = stringResource(R.string.home_chart_open),
-                    onClick = { showChart = true },
-                )
-                ProgressCard(stats = stats)
+                    Spacer(Modifier.height(24.dp))
+                    SectionHeaderAction(
+                        label = stringResource(R.string.home_progress),
+                        icon = R.drawable.ic_chart,
+                        contentDescription = stringResource(R.string.home_chart_open),
+                        onClick = { showChart = true },
+                    )
+                    ProgressCard(stats = stats)
 
-                Spacer(Modifier.height(24.dp))
-                SectionHeaderAction(
-                    label = stringResource(R.string.home_streak),
-                    icon = R.drawable.ic_heatmap,
-                    contentDescription = stringResource(R.string.home_heatmap_open),
-                    onClick = { showHeatmap = true },
-                )
-                StreakCard(stats = stats)
+                    Spacer(Modifier.height(24.dp))
+                    SectionHeaderAction(
+                        label = stringResource(R.string.home_streak),
+                        icon = R.drawable.ic_heatmap,
+                        contentDescription = stringResource(R.string.home_heatmap_open),
+                        onClick = { showHeatmap = true },
+                    )
+                    StreakCard(stats = stats)
                 }
 
-                val todayHabits = habits.filter { habit ->
-                    if (!habit.usesSchedule) {
-                        true
-                    } else {
-                        (today.dayOfWeek.value % 7) in habit.daysOfWeek
-                    }
-                }
                 if (todayHabits.isNotEmpty()) {
                     Spacer(Modifier.height(24.dp))
                     SectionLabel(stringResource(R.string.home_habits))
                     todayHabits.forEach { habit ->
-                        val count = habitCompletions
-                            .firstOrNull { it.habitId == habit.id && it.date == today.toString() }
-                            ?.count ?: 0
-                        val habitCounts = habitCompletions
-                            .filter { it.habitId == habit.id }
-                            .associate {
-                                java.time.LocalDate.parse(it.date) to it.count
-                            }
+                        val habitCounts = habitCountsById[habit.id].orEmpty()
+                        val count = habitCounts[today] ?: 0
                         val streak = habitStreak(
                             habitProgress(habit, habitCounts, today.minusDays(59), today),
                             today,
@@ -367,7 +382,8 @@ fun HomeScreen(
                     onToggle = {
                         scope.launch {
                             val becomingDone = !task.done
-                            taskRepository.toggleDone(task.id)
+                            // Pelo TaskCompletion: concluir aqui também conclui as sub-tarefas.
+                            taskCompletion.setDone(task.id, becomingDone)
                             if (becomingDone) onTaskDone(task.id)
                         }
                     },

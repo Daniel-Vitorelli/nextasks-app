@@ -98,7 +98,7 @@ fun BlockFormDialog(
     }
     val scoreMaxValue = scoreMaxText.toIntOrNull()
     val scoreMaxValid = scoreMaxValue != null && scoreMaxValue in 2..999
-    val effectiveScoreMax = if (scoreMaxValid) scoreMaxValue!! else 5
+    val effectiveScoreMax = scoreMaxValue?.takeIf { it in 2..999 } ?: 5
     var pickerTarget by remember { mutableIntStateOf(0) }
 
     Dialog(

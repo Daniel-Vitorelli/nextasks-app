@@ -54,7 +54,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
+import com.daniel.nextasks.data.BlockOverrideRepository
 import com.daniel.nextasks.data.CompletionRepository
+import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.RoutineRepository
@@ -69,6 +71,10 @@ import kotlinx.coroutines.launch
 fun RoutinesScreen(
     repository: RoutineRepository,
     completionRepository: CompletionRepository,
+    /** Conexões: limpar as órfãs ao excluir rotina/bloco. */
+    connectionRepository: ConnectionRepository,
+    /** Exceções por dia: limpar junto com a rotina/bloco. */
+    overrideRepository: BlockOverrideRepository,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -182,7 +188,19 @@ fun RoutinesScreen(
                 },
                 onToggle = { routine -> scope.launch { repository.toggleActive(routine.id) } },
                 onDuplicate = { routine -> scope.launch { repository.duplicate(routine.id) } },
-                onDelete = { routine -> scope.launch { repository.delete(routine.id) } },
+                onDelete = { routine ->
+                    scope.launch {
+                        repository.delete(routine.id)
+                        // Tudo que apontava para a rotina perde o dono: histórico dos
+                        // blocos, exceções por dia e conexões.
+                        routine.blocks.forEach { block ->
+                            completionRepository.clearForBlock(block.id)
+                            overrideRepository.clearForBlock(block.id)
+                        }
+                        overrideRepository.clearForRoutine(routine.id)
+                        connectionRepository.clearForRoutine(routine.id)
+                    }
+                },
                 onCreate = {
                     editingId = null
                     formVisible = true
@@ -201,8 +219,11 @@ fun RoutinesScreen(
                 onDeleteBlock = { block ->
                     scope.launch {
                         repository.deleteBlock(opened.id, block.id)
-                        // Limpa o histórico de conclusões do bloco removido.
+                        // O bloco saiu da rotina: histórico, exceção do dia e conexão
+                        // não apontam mais para nada.
                         completionRepository.clearForBlock(block.id)
+                        overrideRepository.clearForBlock(block.id)
+                        connectionRepository.clearForBlock(block.id)
                     }
                 },
             )

@@ -5,13 +5,13 @@ import com.daniel.nextasks.data.BlockOverride
 import com.daniel.nextasks.data.EventColorKey
 import com.daniel.nextasks.data.ExtraBlock
 import com.daniel.nextasks.data.Routine
-import com.daniel.nextasks.data.RoutineDuration
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.SuspensionMode
 import com.daniel.nextasks.data.RoutineFrequency
+import com.daniel.nextasks.data.coversDay
+import com.daniel.nextasks.data.parseIsoTime
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /** Converte a chave de cor guardada no banco para a cor de exibição. */
@@ -25,14 +25,12 @@ fun EventColorKey.toEventColor(): EventColor = when (this) {
     EventColorKey.Gray -> EventColor.Gray
 }
 
-private fun parseTime(value: String): LocalTime? =
-    runCatching { LocalTime.parse(value) }.getOrNull()
-
 /**
  * Materializa os blocos das rotinas ativas nos dias informados, gerando os
  * eventos da agenda. Mesma regra do app web (`materializeSchedule`):
  *
  * - rotina inativa não gera nada;
+ * - **antes da criação da rotina** não gera nada ([coversDay]);
  * - duração "até" corta os dias depois da data final;
  * - rotina semanal só ocorre no dia da semana do bloco;
  * - bloco que termina antes de começar atravessa a meia-noite;
@@ -63,12 +61,10 @@ fun routineOccurrences(
 
     for (routine in routines) {
         if (!routine.isActive) continue
-        val endDate = routine.endDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
         for (day in days) {
-            if (routine.duration == RoutineDuration.Until && endDate != null && day.isAfter(endDate)) {
-                continue
-            }
+            // Inativa, antes da criação ou depois do fim: o dia não existe.
+            if (!routine.coversDay(day)) continue
 
             for (original in routine.blocks) {
                 if (routine.frequency == RoutineFrequency.Weekly &&
@@ -173,8 +169,8 @@ internal fun resolveTimes(day: LocalDate, block: RoutineBlock): Pair<LocalDateTi
     if (block.isAllDay) {
         return day.atStartOfDay() to day.plusDays(1).atStartOfDay()
     }
-    val startTime = parseTime(block.startTime) ?: return null
-    val endTime = parseTime(block.endTime) ?: return null
+    val startTime = parseIsoTime(block.startTime) ?: return null
+    val endTime = parseIsoTime(block.endTime) ?: return null
     val start = LocalDateTime.of(day, startTime)
     val sameDayEnd = LocalDateTime.of(day, endTime)
     val end = if (sameDayEnd.isAfter(start)) sameDayEnd else sameDayEnd.plusDays(1)

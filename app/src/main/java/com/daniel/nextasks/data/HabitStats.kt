@@ -82,36 +82,34 @@ fun habitProgress(
 /**
  * Sequência de dias cumpridos. Dias fora da agenda não contam nem quebram.
  *
- * A sequência atual só vale se o último dia cumprido foi hoje ou ontem: hoje
- * ainda em aberto não quebra, mas dois dias sem cumprir quebram.
+ * A conta é feita **sobre os dias agendados**, não sobre o calendário: um hábito
+ * que só vale às segundas precisa poder ter sequência de várias semanas — antes
+ * ele nunca passava de 1, porque o domingo no meio "quebrava" a contagem.
+ *
+ * A sequência atual só vale se o último dia agendado foi cumprido (ou é hoje e
+ * ainda está em aberto): hoje em aberto não quebra, mas um dia agendado perdido
+ * quebra.
  */
 fun habitStreak(progress: List<HabitDay>, today: LocalDate): HabitStreak {
-    val full = progress.filter { it.value == 100 }.map { it.date }.toSet()
-    if (full.isEmpty()) return HabitStreak()
+    // `value` nulo = dia fora da agenda: sai da conta por completo.
+    val scheduled = progress.filter { it.value != null }
+    if (scheduled.isEmpty()) return HabitStreak()
 
     var longest = 0
     var run = 0
-    var previous: LocalDate? = null
-    for (day in progress) {
-        if (day.value == 100) {
-            run = if (previous?.plusDays(1) == day.date) run + 1 else 1
-            if (run > longest) longest = run
-            previous = day.date
-        } else if (day.value != null) {
-            run = 0
-            previous = null
-        }
+    for (day in scheduled) {
+        run = if (day.value == 100) run + 1 else 0
+        if (run > longest) longest = run
     }
 
-    val lastFull: LocalDate? = full.maxOrNull()
-    var current = 0
-    if (lastFull == today || lastFull == today.minusDays(1)) {
-        var cursor: LocalDate? = lastFull
-        while (cursor != null && cursor in full) {
-            current += 1
-            cursor = cursor.minusDays(1)
-        }
+    val last = scheduled.last()
+    val closed = if (last.date == today && last.value != 100) {
+        scheduled.dropLast(1)
+    } else {
+        scheduled
     }
+    val current = closed.takeLastWhile { it.value == 100 }.size
+    val lastFull = scheduled.lastOrNull { it.value == 100 }?.date
 
     return HabitStreak(current = current, longest = longest, lastFullDay = lastFull)
 }

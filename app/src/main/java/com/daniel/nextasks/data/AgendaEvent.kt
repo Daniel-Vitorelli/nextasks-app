@@ -3,7 +3,6 @@ package com.daniel.nextasks.data
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.util.UUID
 
 /** O que acontece com a rotina durante um evento. */
@@ -40,14 +39,21 @@ data class AgendaEvent(
     val color: EventColorKey = EventColorKey.Blue,
     val suspension: SuspensionMode = SuspensionMode.None,
 ) {
-    val start: LocalDate get() = LocalDate.parse(startDate)
-    val end: LocalDate get() = LocalDate.parse(endDate)
+    /**
+     * Pontas do evento, já interpretadas.
+     *
+     * Nulas quando o texto gravado não é uma data válida (backup remendado, por
+     * exemplo). Quem consome trata `null` como "evento ignorado" em vez de
+     * derrubar a tela.
+     */
+    val start: LocalDate? get() = parseIsoDate(startDate)
+    val end: LocalDate? get() = parseIsoDate(endDate)
     val isSingleDay: Boolean get() = startDate == endDate
 
-    /** Todos os dias cobertos pelo evento, inclusive as pontas. */
+    /** Todos os dias cobertos pelo evento, inclusive as pontas. Vazio se ilegível. */
     fun days(): List<LocalDate> {
-        val first = start
-        val last = end
+        val first = start ?: return emptyList()
+        val last = end ?: first
         if (last.isBefore(first)) return listOf(first)
         val result = mutableListOf<LocalDate>()
         var day = first
@@ -66,8 +72,8 @@ data class AgendaEvent(
      */
     fun segments(): List<EventSegment> {
         val days = days()
-        val startAt = startTime?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
-        val endAt = endTime?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+        val startAt = parseIsoTime(startTime)
+        val endAt = parseIsoTime(endTime)
 
         return days.mapIndexed { index, day ->
             val first = index == 0

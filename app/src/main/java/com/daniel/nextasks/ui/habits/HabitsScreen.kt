@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
+import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.Habit
 import com.daniel.nextasks.data.HabitFrequency
 import com.daniel.nextasks.data.HabitKind
@@ -60,6 +61,7 @@ import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.HabitStreak
 import com.daniel.nextasks.data.habitProgress
 import com.daniel.nextasks.data.habitStreak
+import com.daniel.nextasks.data.parseIsoDate
 import com.daniel.nextasks.ui.calendar.toEventColor
 import com.daniel.nextasks.ui.components.dashedCard
 import kotlinx.coroutines.launch
@@ -73,6 +75,8 @@ import java.time.LocalDate
 @Composable
 fun HabitsScreen(
     repository: HabitRepository,
+    /** Conexões: limpar as órfãs ao excluir hábito. */
+    connectionRepository: ConnectionRepository,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -160,7 +164,9 @@ fun HabitsScreen(
                     val counts = remember(completions, habit.id) {
                         completions
                             .filter { it.habitId == habit.id }
-                            .associate { java.time.LocalDate.parse(it.date) to it.count }
+                            // Data ilegível (backup remendado) é ignorada, não derruba a lista.
+                            .mapNotNull { c -> parseIsoDate(c.date)?.let { it to c.count } }
+                            .toMap()
                     }
                     val progress = remember(counts, habit, today) {
                         habitProgress(habit, counts, today.minusDays(83), today)
@@ -206,7 +212,10 @@ fun HabitsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch { repository.delete(habit.id) }
+                        scope.launch {
+                            repository.delete(habit.id)
+                            connectionRepository.clearForHabit(habit.id)
+                        }
                         deleteTarget = null
                     },
                 ) {

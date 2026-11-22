@@ -56,8 +56,7 @@ sealed interface DayFilter {
                     ?: All
 
             raw.startsWith("date:") ->
-                runCatching { LocalDate.parse(raw.substringAfter("date:")) }
-                    .getOrNull()
+                parseIsoDate(raw.substringAfter("date:"))
                     ?.let { Date(it) }
                     ?: All
 
@@ -78,8 +77,8 @@ fun Connection.countsFor(completion: Completion): Boolean {
     if (completion.blockId != blockId) return false
     if (completion.value == "false" || completion.value.toIntOrNull() == 0) return false
 
-    val period = runCatching { LocalDate.parse(completion.periodStart) }.getOrNull() ?: return false
-    val created = runCatching { LocalDate.parse(createdOn) }.getOrNull() ?: return true
+    val period = parseIsoDate(completion.periodStart) ?: return false
+    val created = parseIsoDate(createdOn) ?: return true
     if (period.isBefore(created)) return false
 
     return when (val filter = DayFilter.parse(dayFilter)) {

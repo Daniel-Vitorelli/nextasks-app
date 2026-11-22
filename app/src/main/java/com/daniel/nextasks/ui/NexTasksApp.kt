@@ -1,7 +1,6 @@
 package com.daniel.nextasks.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,9 +74,9 @@ import com.daniel.nextasks.data.ExtraBlockRepository
 import com.daniel.nextasks.data.RoutineRepository
 import com.daniel.nextasks.data.SettingsRepository
 import com.daniel.nextasks.data.SubtaskRepository
+import com.daniel.nextasks.data.TaskCompletion
 import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.TaskSortSettings
-import com.daniel.nextasks.ui.components.dashedCard
 import com.daniel.nextasks.ui.habits.HabitsScreen
 import com.daniel.nextasks.ui.home.HomeScreen
 import com.daniel.nextasks.ui.tasks.TasksScreen
@@ -115,12 +114,14 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
     val habitRepository = remember(context) { HabitRepository(context) }
     val backupService = remember(context) { BackupService(context) }
     val connectionRepository = remember(context) { ConnectionRepository(context) }
+    // Conclusão de tarefa com a cascata das sub-tarefas, num ponto só.
+    val taskCompletion = remember(context) { TaskCompletion(taskRepository, subtaskRepository) }
     val connectionEngine = remember(context) {
         ConnectionEngine(
             connectionRepository = connectionRepository,
             completionRepository = completionRepository,
             routineRepository = routineRepository,
-            taskRepository = taskRepository,
+            taskCompletion = taskCompletion,
             subtaskRepository = subtaskRepository,
             habitRepository = habitRepository,
             settingsRepository = settingsRepository,
@@ -208,12 +209,16 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
             AppDestination.Routines -> RoutinesScreen(
                 repository = routineRepository,
                 completionRepository = completionRepository,
+                connectionRepository = connectionRepository,
+                overrideRepository = overrideRepository,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
             AppDestination.Tasks -> TasksScreen(
                 repository = taskRepository,
                 subtaskRepository = subtaskRepository,
+                taskCompletion = taskCompletion,
+                connectionRepository = connectionRepository,
                 taskSort = settings.taskSort,
                 onTaskDone = { taskId -> scope.launch { connectionEngine.onTaskDone(taskId) } },
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
@@ -222,6 +227,7 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
 
             AppDestination.Habits -> HabitsScreen(
                 repository = habitRepository,
+                connectionRepository = connectionRepository,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
@@ -233,6 +239,7 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 habitRepository = habitRepository,
                 eventRepository = eventRepository,
                 subtaskRepository = subtaskRepository,
+                connectionRepository = connectionRepository,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
@@ -246,6 +253,7 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onTaskDone = { taskId -> scope.launch { connectionEngine.onTaskDone(taskId) } },
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
                 onHabitDone = { id -> scope.launch { connectionEngine.onHabitDone(id) } },
+                taskCompletion = taskCompletion,
                 routineRepository = routineRepository,
                 completionRepository = completionRepository,
                 taskRepository = taskRepository,
@@ -271,6 +279,7 @@ private fun SectionScaffold(
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
+    taskCompletion: TaskCompletion,
     routineRepository: RoutineRepository,
     completionRepository: CompletionRepository,
     taskRepository: TaskRepository,
@@ -317,6 +326,7 @@ private fun SectionScaffold(
             onTaskDone = onTaskDone,
             onSubtaskDone = onSubtaskDone,
             onHabitDone = onHabitDone,
+            taskCompletion = taskCompletion,
             routineRepository = routineRepository,
             completionRepository = completionRepository,
             taskRepository = taskRepository,
@@ -445,6 +455,7 @@ private fun SectionContent(
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
+    taskCompletion: TaskCompletion,
     onNavigate: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -458,6 +469,7 @@ private fun SectionContent(
             extraRepository = extraRepository,
             eventRepository = eventRepository,
             habitRepository = habitRepository,
+            taskCompletion = taskCompletion,
             userName = userName,
             taskSort = taskSort,
             onBlockConfirmed = onBlockConfirmed,
@@ -510,44 +522,6 @@ private fun PlaceholderSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-    }
-}
-
-/** Card de estado vazio com borda tracejada, como no app web. */
-@Composable
-private fun EmptyStateCard(
-    @DrawableRes icon: Int,
-    title: String,
-    description: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .dashedCard(MaterialTheme.colorScheme.outline, 12.dp)
-            .padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp),
-        )
-        Spacer(Modifier.width(16.dp))
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

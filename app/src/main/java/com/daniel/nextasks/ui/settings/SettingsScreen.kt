@@ -63,6 +63,7 @@ import com.daniel.nextasks.data.AccentColor
 import com.daniel.nextasks.data.Addon
 import com.daniel.nextasks.data.BackupService
 import com.daniel.nextasks.data.BackupSummary
+import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.EventRepository
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.RestoreResult
@@ -74,6 +75,7 @@ import com.daniel.nextasks.data.ThemeMode
 import com.daniel.nextasks.ui.AppDestination
 import com.daniel.nextasks.ui.theme.colors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -96,6 +98,8 @@ fun SettingsScreen(
     habitRepository: HabitRepository,
     eventRepository: EventRepository,
     subtaskRepository: SubtaskRepository,
+    /** Conexões: podar as órfãs depois de restaurar um backup. */
+    connectionRepository: ConnectionRepository,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -388,6 +392,23 @@ fun SettingsScreen(
                         scope.launch {
                             busy = true
                             val result = runCatching { backupService.restore(json) }.getOrNull()
+                            if (result is RestoreResult.Restored) {
+                                // O backup pode trazer conexões de blocos/entidades que
+                                // não vieram no mesmo arquivo. Lê os fluxos com `first()`
+                                // (o estado da tela ainda é o de antes da restauração).
+                                connectionRepository.prune(
+                                    blockIds = routineRepository.routines.first()
+                                        .flatMap { routine -> routine.blocks.map { it.id } }
+                                        .toSet(),
+                                    taskIds = taskRepository.tasks.first().map { it.id }.toSet(),
+                                    subtaskIds = subtaskRepository.subtasks.first()
+                                        .map { it.id }
+                                        .toSet(),
+                                    habitIds = habitRepository.habitList.first()
+                                        .map { it.id }
+                                        .toSet(),
+                                )
+                            }
                             busy = false
                             snackbarHostState.showSnackbar(
                                 when (result) {
