@@ -189,6 +189,9 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onBlockConfirmed = { blockId ->
                     scope.launch { connectionEngine.onBlockConfirmed(blockId) }
                 },
+                onBlockUnconfirmed = { blockId ->
+                    scope.launch { connectionEngine.onBlockUnconfirmed(blockId) }
+                },
                 routineRepository = routineRepository,
                 completionRepository = completionRepository,
                 overrideRepository = overrideRepository,
@@ -204,6 +207,9 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 subtaskRepository = subtaskRepository,
                 habitRepository = habitRepository,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
+                onApplyNow = { connection ->
+                    scope.launch { connectionEngine.applyNow(connection) }
+                },
             )
 
             AppDestination.Routines -> RoutinesScreen(
@@ -250,6 +256,9 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onBlockConfirmed = { blockId ->
                     scope.launch { connectionEngine.onBlockConfirmed(blockId) }
                 },
+                onBlockUnconfirmed = { blockId ->
+                    scope.launch { connectionEngine.onBlockUnconfirmed(blockId) }
+                },
                 onTaskDone = { taskId -> scope.launch { connectionEngine.onTaskDone(taskId) } },
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
                 onHabitDone = { id -> scope.launch { connectionEngine.onHabitDone(id) } },
@@ -276,6 +285,7 @@ private fun SectionScaffold(
     userName: String,
     taskSort: TaskSortSettings,
     onBlockConfirmed: (String) -> Unit,
+    onBlockUnconfirmed: (String) -> Unit,
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
@@ -323,6 +333,7 @@ private fun SectionScaffold(
             destination = destination,
             taskSort = taskSort,
             onBlockConfirmed = onBlockConfirmed,
+            onBlockUnconfirmed = onBlockUnconfirmed,
             onTaskDone = onTaskDone,
             onSubtaskDone = onSubtaskDone,
             onHabitDone = onHabitDone,
@@ -452,6 +463,7 @@ private fun SectionContent(
     userName: String,
     taskSort: TaskSortSettings,
     onBlockConfirmed: (String) -> Unit,
+    onBlockUnconfirmed: (String) -> Unit,
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
@@ -473,6 +485,7 @@ private fun SectionContent(
             userName = userName,
             taskSort = taskSort,
             onBlockConfirmed = onBlockConfirmed,
+            onBlockUnconfirmed = onBlockUnconfirmed,
             onTaskDone = onTaskDone,
             onSubtaskDone = onSubtaskDone,
             onHabitDone = onHabitDone,

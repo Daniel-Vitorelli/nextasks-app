@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.37`, `versionCode 58` |
-| Tamanho | ~81 arquivos Kotlin, ~16.900 linhas, 439 strings |
+| Versão atual | `versionName 3.38`, `versionCode 59` |
+| Tamanho | ~82 arquivos Kotlin, ~17.100 linhas, 450 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -249,6 +249,14 @@ Errar isso faz o progresso contar duas vezes ou nunca.
 - Em rotina **semanal** não existe filtro de dia: a confirmação é gravada no início da
   semana, então `weekday:`/`date:` comparariam sempre com o domingo e a conexão nunca
   contaria. `dayFilterFor` força `all` nesse caso e o editor esconde os chips.
+- **Desmarcar o bloco desfaz** o que a conexão concluiu: tarefa e sub-tarefa voltam a
+  aberta quando a contagem cai abaixo da meta — a menos que outra conexão da mesma
+  entidade continue satisfeita. Hábito **não** volta (a marcação é do usuário).
+- **Várias entidades no mesmo bloco** avançam juntas; a tela avisa ("também alimenta")
+  no cartão e no editor. Não é bloqueio: um bloco pode legitimamente alimentar duas.
+- `ConnectionStatus.kt` responde duas perguntas do cartão: por que a conexão nunca vai
+  disparar (`blockBlocker`: rotina inativa/terminada/não começou, horário inválido) e
+  quantos dias faltam no ritmo real (`paceEstimate`).
 
 ### 7.3 Conclusão de tarefa
 
@@ -373,8 +381,9 @@ O print (`screencap`) serve para **conferir** o resultado, não para medir o toq
 ## 12. Pendências
 
 - **Gamificação e IA** são páginas placeholder — sem pontos, conquistas ou chat.
-- **Conexões**: não avisa quando duas entidades disputam o mesmo bloco (ambas avançam);
-  não estima "no seu ritmo, conclui em ~N dias".
+- **Conexões**: desmarcar o bloco reabre tarefa/sub-tarefa, mas **não** desfaz hábito —
+  a conexão não sabe separar o que foi dela do que o usuário marcou à mão. Só dá para
+  resolver registrando a origem de cada marcação.
 - **Gate de conexões** verificado em execução na v3.35: com o addon desligado, confirmar
   o bloco grava a conclusão mas **não** conclui a tarefa conectada, e a seção some da
   gaveta.

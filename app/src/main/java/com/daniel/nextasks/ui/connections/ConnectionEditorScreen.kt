@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DatePickerDialog
@@ -90,6 +91,8 @@ fun ConnectionEditorScreen(
     modifier: Modifier = Modifier,
     /** Conexão sendo editada; nulo = criando uma nova. */
     initial: Connection? = null,
+    /** Só na edição: aplica o efeito na hora, sem esperar as confirmações. */
+    onApplyNow: ((Connection) -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
 
@@ -123,6 +126,7 @@ fun ConnectionEditorScreen(
         )
     }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var applyConfirm by remember { mutableStateOf(false) }
 
     val duplicate = blockId != null && entityId != null && existing.any { connection ->
         connection.id != initial?.id &&
@@ -144,6 +148,40 @@ fun ConnectionEditorScreen(
     }
 
     val canSave = blockId != null && entityId != null && !duplicate
+
+    /** Monta a conexão a partir do formulário; nulo se ainda falta escolher algo. */
+    fun buildConnection(): Connection? {
+        val id = blockId ?: return null
+        val routineId = blocks.firstOrNull { it.second.id == id }?.first?.id ?: return null
+        return Connection(
+            id = initial?.id ?: UUID.randomUUID().toString(),
+            createdOn = initial?.createdOn ?: LocalDate.now().toString(),
+            routineId = routineId,
+            blockId = id,
+            taskId = if (kind == EntityKind.Task) entityId else null,
+            subtaskId = if (kind == EntityKind.Subtask) entityId else null,
+            habitId = if (kind == EntityKind.Habit) entityId else null,
+            requiredCount = requiredCount,
+            dayFilter = dayFilterFor(weekly = weekly, weekday = weekday, dateIso = dateIso),
+        )
+    }
+
+    /** Outras entidades que já dependem do bloco escolhido. */
+    val blockOthers = remember(blockId, existing, tasks, subtasks, habits) {
+        val id = blockId ?: return@remember emptyList()
+        existing
+            .filter { it.blockId == id && it.id != initial?.id }
+            .mapNotNull { link ->
+                when {
+                    link.taskId != null -> tasks.firstOrNull { it.id == link.taskId }?.title
+                    link.subtaskId != null ->
+                        subtasks.firstOrNull { it.id == link.subtaskId }?.title
+
+                    link.habitId != null -> habits.firstOrNull { it.id == link.habitId }?.name
+                    else -> null
+                }
+            }
+    }
 
     if (showDatePicker) {
         DatePickerSheet(
@@ -226,6 +264,20 @@ fun ConnectionEditorScreen(
                         }
                     }
                 }
+            }
+
+            // Aviso: o bloco escolhido já alimenta outra entidade.
+            if (blockOthers.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.connection_block_shared,
+                        blockOthers.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
 
             SectionLabel(stringResource(R.string.connection_step_2))
@@ -496,27 +548,7 @@ fun ConnectionEditorScreen(
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = {
-                    val routineId = blocks.firstOrNull { it.second.id == blockId }?.first?.id
-                        ?: return@Button
-                    onSave(
-                        Connection(
-                            id = initial?.id ?: UUID.randomUUID().toString(),
-                            createdOn = initial?.createdOn ?: LocalDate.now().toString(),
-                            routineId = routineId,
-                            blockId = blockId ?: return@Button,
-                            taskId = if (kind == EntityKind.Task) entityId else null,
-                            subtaskId = if (kind == EntityKind.Subtask) entityId else null,
-                            habitId = if (kind == EntityKind.Habit) entityId else null,
-                            requiredCount = requiredCount,
-                            dayFilter = dayFilterFor(
-                                weekly = weekly,
-                                weekday = weekday,
-                                dateIso = dateIso,
-                            ),
-                        ),
-                    )
-                },
+                onClick = { buildConnection()?.let(onSave) },
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -526,7 +558,41 @@ fun ConnectionEditorScreen(
                     ),
                 )
             }
+
+            if (onApplyNow != null) {
+                Spacer(Modifier.height(4.dp))
+                TextButton(
+                    onClick = { applyConfirm = true },
+                    enabled = canSave,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.connection_apply_now))
+                }
+            }
         }
+    }
+
+    if (applyConfirm) {
+        AlertDialog(
+            onDismissRequest = { applyConfirm = false },
+            title = { Text(stringResource(R.string.connection_apply_now_title)) },
+            text = { Text(stringResource(R.string.connection_apply_now_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        applyConfirm = false
+                        buildConnection()?.let { connection -> onApplyNow?.invoke(connection) }
+                    },
+                ) {
+                    Text(stringResource(R.string.connection_apply_now))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { applyConfirm = false }) {
+                    Text(stringResource(R.string.settings_cancel))
+                }
+            },
+        )
     }
 }
 

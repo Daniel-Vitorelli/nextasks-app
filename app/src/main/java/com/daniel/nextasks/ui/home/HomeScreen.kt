@@ -123,6 +123,8 @@ fun HomeScreen(
     taskSort: TaskSortSettings = TaskSortSettings(),
     /** Chamado depois de confirmar um bloco — as conexões reagem a isso. */
     onBlockConfirmed: (String) -> Unit = {},
+    /** Desmarcar a confirmação: a conexão desfaz o que ela tinha concluído. */
+    onBlockUnconfirmed: (String) -> Unit = {},
     /** Chamado quando uma tarefa é concluída — idem. */
     onTaskDone: (String) -> Unit = {},
     onSubtaskDone: (String) -> Unit = {},
@@ -228,7 +230,7 @@ fun HomeScreen(
         val period = event.completionPeriodStart ?: return
         scope.launch {
             completionRepository.set(blockId, period, value)
-            if (value != null) onBlockConfirmed(blockId)
+            if (value != null) onBlockConfirmed(blockId) else onBlockUnconfirmed(blockId)
         }
     }
 

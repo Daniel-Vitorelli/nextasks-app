@@ -31,6 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
+import com.daniel.nextasks.data.BlockBlocker
 import com.daniel.nextasks.data.Completion
 import com.daniel.nextasks.data.CompletionRepository
 import com.daniel.nextasks.data.Connection
@@ -69,7 +74,9 @@ import com.daniel.nextasks.data.Subtask
 import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.Task
 import com.daniel.nextasks.data.TaskRepository
+import com.daniel.nextasks.data.blockBlocker
 import com.daniel.nextasks.data.countsFor
+import com.daniel.nextasks.data.paceEstimate
 import com.daniel.nextasks.ui.calendar.toEventColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -88,6 +95,12 @@ private data class ConnectionView(
     val entityDone: Boolean?,
     /** Dias desde a última confirmação que conta (nulo = nunca contou). */
     val staleDays: Int?,
+    /** Motivo permanente para a conexão nunca disparar (rotina inativa, terminada…). */
+    val blocker: BlockBlocker? = null,
+    /** Outras entidades ligadas ao mesmo bloco: a confirmação alimenta todas. */
+    val sharesWith: List<String> = emptyList(),
+    /** Dias estimados para bater a meta no ritmo atual (nulo = sem dados). */
+    val estimateDays: Int? = null,
 ) {
     val satisfied: Boolean get() = confirmed >= connection.requiredCount
     val remaining: Int get() = (connection.requiredCount - confirmed).coerceAtLeast(0)
@@ -108,6 +121,8 @@ fun ConnectionsScreen(
     subtaskRepository: SubtaskRepository,
     habitRepository: HabitRepository,
     onOpenDrawer: () -> Unit,
+    /** "Aplicar agora": força o efeito da conexão sem esperar as confirmações. */
+    onApplyNow: (Connection) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val connections by connectionRepository.connections.collectAsState(initial = emptyList())
@@ -119,10 +134,14 @@ fun ConnectionsScreen(
 
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now() }
+    val snackbarHostState = remember { SnackbarHostState() }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var filter by rememberSaveable { mutableStateOf(ListFilter.All) }
     var deleteTarget by remember { mutableStateOf<Connection?>(null) }
+
+    val deletedMessage = stringResource(R.string.connections_deleted)
+    val undoLabel = stringResource(R.string.occurrence_undo)
 
     if (editorOpen) {
         ConnectionEditorScreen(
@@ -136,6 +155,17 @@ fun ConnectionsScreen(
             onSave = { connection ->
                 scope.launch { connectionRepository.save(connection) }
                 editorOpen = false
+            },
+            onApplyNow = if (editingId == null) {
+                null
+            } else {
+                { connection ->
+                    scope.launch {
+                        connectionRepository.save(connection)
+                        onApplyNow(connection)
+                    }
+                    editorOpen = false
+                }
             },
         )
         return
@@ -183,6 +213,7 @@ fun ConnectionsScreen(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -319,7 +350,19 @@ fun ConnectionsScreen(
                 TextButton(
                     onClick = {
                         deleteTarget = null
-                        scope.launch { connectionRepository.delete(target.id) }
+                        scope.launch {
+                            connectionRepository.delete(target.id)
+                            val result = snackbarHostState.showSnackbar(
+                                message = deletedMessage,
+                                actionLabel = undoLabel,
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Short,
+                            )
+                            // Desfazer devolve o vínculo exatamente como era.
+                            if (result == SnackbarResult.ActionPerformed) {
+                                connectionRepository.save(target)
+                            }
+                        }
                     },
                 ) {
                     Text(
@@ -649,19 +692,65 @@ private fun ConnectionCard(view: ConnectionView, onOpen: () -> Unit, onDelete: (
             )
 
             view.staleDays?.let { days ->
+                // Com um motivo permanente, "parada há N dias" só confunde.
+                if (view.blocker == null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = if (days == 1) {
+                            stringResource(R.string.connections_stale_one)
+                        } else {
+                            stringResource(R.string.connections_stale, days)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            view.blocker?.let { blocker ->
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (days == 1) {
-                        stringResource(R.string.connections_stale_one)
-                    } else {
-                        stringResource(R.string.connections_stale, days)
-                    },
+                    text = blockerLabel(blocker),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
+
+            if (view.sharesWith.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(
+                        R.string.connections_shares_with,
+                        view.sharesWith.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            if (view.blocker == null) {
+                view.estimateDays?.let { days ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.connections_estimate_pace, days),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
+}
+
+/** Texto do motivo pelo qual a conexão não vai disparar. */
+@Composable
+private fun blockerLabel(blocker: BlockBlocker): String = when (blocker) {
+    BlockBlocker.RoutineInactive -> stringResource(R.string.connections_blocker_inactive)
+    BlockBlocker.RoutineEnded -> stringResource(R.string.connections_blocker_ended)
+    BlockBlocker.RoutineNotStarted -> stringResource(R.string.connections_blocker_not_started)
+    BlockBlocker.InvalidTime -> stringResource(R.string.connections_blocker_invalid_time)
 }
 
 private fun weekdayShortRes(weekday: Int): Int = when (weekday) {
@@ -685,6 +774,13 @@ private fun buildViews(
     today: LocalDate,
 ): List<ConnectionView> {
     val blocks = routines.flatMap { routine -> routine.blocks.map { routine to it } }
+
+    fun nameOf(connection: Connection): String? = when {
+        connection.taskId != null -> tasks.firstOrNull { it.id == connection.taskId }?.title
+        connection.subtaskId != null -> subtasks.firstOrNull { it.id == connection.subtaskId }?.title
+        connection.habitId != null -> habits.firstOrNull { it.id == connection.habitId }?.name
+        else -> null
+    }
 
     return connections.mapNotNull { connection ->
         val block = blocks.firstOrNull { it.second.id == connection.blockId }
@@ -712,6 +808,11 @@ private fun buildViews(
             confirmed = completions.count { connection.countsFor(it) },
             entityDone = entity.third,
             staleDays = staleDays(connection, completions, today),
+            blocker = blockBlocker(block.first, block.second, today),
+            sharesWith = connections
+                .filter { it.id != connection.id && it.blockId == connection.blockId }
+                .mapNotNull { nameOf(it) },
+            estimateDays = paceEstimate(connection, completions, today),
         )
     }.sortedBy { it.sortKey }
 }

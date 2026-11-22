@@ -413,6 +413,17 @@
     <string name="connection_when_all">Todos os dias</string>
     <string name="connection_when_day">Só %1$s</string>
     <string name="connection_weekly_whole_week">Rotina semanal: a meta vale para a semana inteira, então não há filtro de dia.</string>
+    <string name="connection_block_shared">Este bloco também alimenta: %1$s</string>
+    <string name="connection_apply_now">Aplicar agora</string>
+    <string name="connection_apply_now_title">Aplicar agora?</string>
+    <string name="connection_apply_now_body">A entidade é concluída na hora, sem esperar as confirmações do bloco. Serve para testar a conexão.</string>
+    <string name="connections_deleted">Conexão removida</string>
+    <string name="connections_blocker_inactive">Rotina inativa — não vai disparar</string>
+    <string name="connections_blocker_ended">Rotina terminou — não vai disparar</string>
+    <string name="connections_blocker_not_started">Rotina ainda não começou</string>
+    <string name="connections_blocker_invalid_time">Horário do bloco inválido</string>
+    <string name="connections_shares_with">Também alimenta %1$s</string>
+    <string name="connections_estimate_pace">No seu ritmo, ~%1$d dias</string>
     <string name="weekday_short_0">Dom</string>
     <string name="weekday_short_1">Seg</string>
     <string name="weekday_short_2">Ter</string>

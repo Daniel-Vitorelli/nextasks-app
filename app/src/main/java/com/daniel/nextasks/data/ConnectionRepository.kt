@@ -182,6 +182,52 @@ class ConnectionEngine(
         }
     }
 
+    /**
+     * Desmarcar a confirmação desfaz o que ela concluiu.
+     *
+     * Só vale para tarefa e sub-tarefa: hábito não volta atrás, porque a marcação é
+     * do usuário e a conexão não consegue separar o que foi dela do que foi manual.
+     * Se outra conexão da mesma entidade continua satisfeita, nada é desfeito.
+     */
+    suspend fun onBlockUnconfirmed(blockId: String, today: LocalDate = LocalDate.now()) {
+        if (!enabled()) return
+
+        val links = connectionRepository.connections.first().filter { it.blockId == blockId }
+        if (links.isEmpty()) return
+
+        val completions = completionRepository.completions.first()
+        links.forEach { link ->
+            val count = completions.count { link.countsFor(it) }
+            if (count < link.requiredCount) revert(link, completions)
+        }
+    }
+
+    /** Aplica o efeito agora, sem esperar as confirmações — ação manual da tela. */
+    suspend fun applyNow(connection: Connection, today: LocalDate = LocalDate.now()) {
+        advance(connection, today)
+    }
+
+    private suspend fun revert(link: Connection, completions: List<Completion>) {
+        val entityId = link.entityId ?: return
+
+        // Outra conexão da mesma entidade pode continuar batendo a meta.
+        val others = connectionRepository.connections.first()
+            .filter { it.id != link.id && it.entityId == entityId }
+        if (others.any { other -> completions.count { other.countsFor(it) } >= other.requiredCount }) {
+            return
+        }
+
+        link.taskId?.let { id ->
+            taskCompletion.setDone(id, false)
+            return
+        }
+
+        link.subtaskId?.let { id ->
+            val subtask = subtaskRepository.subtasks.first().firstOrNull { it.id == id }
+            if (subtask != null && subtask.done) subtaskRepository.toggleDone(id)
+        }
+    }
+
     private suspend fun advance(link: Connection, today: LocalDate) {
         link.taskId?.let { id ->
             // Pelo TaskCompletion: concluir a tarefa tem que concluir as sub-tarefas.

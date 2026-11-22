@@ -97,6 +97,8 @@ fun CalendarScreen(
     onOpenDrawer: () -> Unit,
     /** Chamado depois de confirmar um bloco — as conexões reagem a isso. */
     onBlockConfirmed: (String) -> Unit = {},
+    /** Desmarcar a confirmação: a conexão desfaz o que ela tinha concluído. */
+    onBlockUnconfirmed: (String) -> Unit = {},
     routineRepository: RoutineRepository,
     completionRepository: CompletionRepository,
     overrideRepository: BlockOverrideRepository,
@@ -292,7 +294,11 @@ fun CalendarScreen(
                                     if (blockId != null && period != null) {
                                         scope.launch {
                                             completionRepository.set(blockId, period, value)
-                                            if (value != null) onBlockConfirmed(blockId)
+                                            if (value != null) {
+                                                onBlockConfirmed(blockId)
+                                            } else {
+                                                onBlockUnconfirmed(blockId)
+                                            }
                                         }
                                     }
                                 },
