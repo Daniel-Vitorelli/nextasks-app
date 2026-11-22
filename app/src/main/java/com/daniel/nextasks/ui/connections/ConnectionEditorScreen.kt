@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.Connection
 import com.daniel.nextasks.data.DayFilter
+import com.daniel.nextasks.data.dayFilterFor
 import com.daniel.nextasks.data.Habit
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineFrequency
@@ -399,33 +400,39 @@ fun ConnectionEditorScreen(
 
             SectionLabel(stringResource(R.string.connection_step_4))
 
-            // FlowRow: com 9 opções, a linha horizontal esconderia "Uma data".
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                DayChip(
-                    label = stringResource(R.string.connection_when_all),
-                    selected = weekday == null,
-                    onClick = { weekday = null },
-                )
-                (0..6).forEach { day ->
+            if (weekly) {
+                // Semanal: a confirmação é gravada no início da semana, então filtro
+                // por dia não teria o que comparar (ver `dayFilterFor`).
+                HintCard(stringResource(R.string.connection_weekly_whole_week))
+            } else {
+                // FlowRow: com 9 opções, a linha horizontal esconderia "Uma data".
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     DayChip(
-                        label = stringResource(weekdayShortRes(day)),
-                        selected = weekday == day,
-                        onClick = {
-                            weekday = day
-                            dateIso = null
-                        },
+                        label = stringResource(R.string.connection_when_all),
+                        selected = weekday == null,
+                        onClick = { weekday = null },
+                    )
+                    (0..6).forEach { day ->
+                        DayChip(
+                            label = stringResource(weekdayShortRes(day)),
+                            selected = weekday == day,
+                            onClick = {
+                                weekday = day
+                                dateIso = null
+                            },
+                        )
+                    }
+                    DayChip(
+                        label = dateIso?.let { formatShortDate(it) }
+                            ?: stringResource(R.string.connection_when_pick_date),
+                        selected = dateIso != null,
+                        onClick = { showDatePicker = true },
                     )
                 }
-                DayChip(
-                    label = dateIso?.let { formatShortDate(it) }
-                        ?: stringResource(R.string.connection_when_pick_date),
-                    selected = dateIso != null,
-                    onClick = { showDatePicker = true },
-                )
             }
 
             val summaryBlock = blocks.firstOrNull { it.second.id == blockId }?.second?.title
@@ -502,11 +509,11 @@ fun ConnectionEditorScreen(
                             subtaskId = if (kind == EntityKind.Subtask) entityId else null,
                             habitId = if (kind == EntityKind.Habit) entityId else null,
                             requiredCount = requiredCount,
-                            dayFilter = when {
-                                dateIso != null -> "date:$dateIso"
-                                weekday != null -> "weekday:$weekday"
-                                else -> "all"
-                            },
+                            dayFilter = dayFilterFor(
+                                weekly = weekly,
+                                weekday = weekday,
+                                dateIso = dateIso,
+                            ),
                         ),
                     )
                 },

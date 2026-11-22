@@ -72,6 +72,21 @@ sealed interface DayFilter {
     }
 }
 
+/**
+ * Filtro de dia que a conexão deve gravar.
+ *
+ * Em rotina **semanal** a confirmação é gravada no início da semana
+ * (`RoutineOccurrences`), não no dia em que o bloco ocorreu. Filtrar por dia da
+ * semana ou por data compararia sempre com o domingo — a conexão nunca contaria.
+ * Semanal, portanto, vale a semana inteira: só `all` faz sentido.
+ */
+fun dayFilterFor(weekly: Boolean, weekday: Int?, dateIso: String?): String = when {
+    weekly -> Connection.ALL_DAYS
+    dateIso != null -> "date:$dateIso"
+    weekday != null -> "weekday:$weekday"
+    else -> Connection.ALL_DAYS
+}
+
 /** Uma confirmação do bloco entra na conta desta conexão? */
 fun Connection.countsFor(completion: Completion): Boolean {
     if (completion.blockId != blockId) return false

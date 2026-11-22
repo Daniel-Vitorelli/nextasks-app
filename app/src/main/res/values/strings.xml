@@ -412,6 +412,7 @@
     <string name="connection_when_pick_date">Uma data</string>
     <string name="connection_when_all">Todos os dias</string>
     <string name="connection_when_day">Só %1$s</string>
+    <string name="connection_weekly_whole_week">Rotina semanal: a meta vale para a semana inteira, então não há filtro de dia.</string>
     <string name="weekday_short_0">Dom</string>
     <string name="weekday_short_1">Seg</string>
     <string name="weekday_short_2">Ter</string>

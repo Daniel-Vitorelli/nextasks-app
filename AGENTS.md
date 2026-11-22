@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.36`, `versionCode 57` |
-| Tamanho | ~81 arquivos Kotlin, ~16.800 linhas, 438 strings |
+| Versão atual | `versionName 3.37`, `versionCode 58` |
+| Tamanho | ~81 arquivos Kotlin, ~16.900 linhas, 439 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -246,6 +246,9 @@ Errar isso faz o progresso contar duas vezes ou nunca.
   atual (semanal usa o início da semana), se ainda não estiver confirmado.
 - Confirmações **anteriores à criação** da conexão não contam (`createdOn`).
 - `dayFilter` restringe quais períodos contam; `date:` só admite meta 1.
+- Em rotina **semanal** não existe filtro de dia: a confirmação é gravada no início da
+  semana, então `weekday:`/`date:` comparariam sempre com o domingo e a conexão nunca
+  contaria. `dayFilterFor` força `all` nesse caso e o editor esconde os chips.
 
 ### 7.3 Conclusão de tarefa
 

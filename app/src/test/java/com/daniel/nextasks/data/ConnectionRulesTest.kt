@@ -120,6 +120,39 @@ class ConnectionRulesTest {
         assertEquals(DayFilter.All, DayFilter.parse("qualquer coisa"))
     }
 
+    // ---------- dayFilterFor ----------
+
+    @Test
+    fun `rotina semanal nao aceita filtro de dia`() {
+        // A confirmação semanal é gravada no início da semana; filtrar por dia da
+        // semana compararia sempre com o domingo e a conexão nunca contaria.
+        assertEquals("all", dayFilterFor(weekly = true, weekday = 1, dateIso = null))
+        assertEquals("all", dayFilterFor(weekly = true, weekday = null, dateIso = "2026-11-20"))
+    }
+
+    @Test
+    fun `rotina diaria respeita o filtro escolhido`() {
+        assertEquals("weekday:3", dayFilterFor(weekly = false, weekday = 3, dateIso = null))
+        assertEquals("date:2026-11-20", dayFilterFor(weekly = false, weekday = null, dateIso = "2026-11-20"))
+        assertEquals("all", dayFilterFor(weekly = false, weekday = null, dateIso = null))
+    }
+
+    @Test
+    fun `a data escolhida ganha do dia da semana`() {
+        assertEquals(
+            "date:2026-11-20",
+            dayFilterFor(weekly = false, weekday = 1, dateIso = "2026-11-20"),
+        )
+    }
+
+    @Test
+    fun `periodo semanal e o inicio da semana, nao o dia do bloco`() {
+        // 2026-11-15 é domingo: início da semana de uma rotina semanal.
+        val connection = link(dayFilter = "weekday:1")
+
+        assertFalse(connection.countsFor(completion("2026-11-15")))
+    }
+
     // ---------- Connection ----------
 
     @Test
