@@ -29,7 +29,7 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.33`, `versionCode 54` |
+| Versão atual | `versionName 3.34`, `versionCode 55` |
 | Tamanho | ~78 arquivos Kotlin, ~16.500 linhas, 452 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
@@ -325,7 +325,32 @@ responde"). Meça a faixa de texto/cor com ImageMagick e confirme qual elemento 
 
 ---
 
-## 13. Histórico (resumo)
+## 13. Git
+
+Repositório local desde a v3.34 (commit inicial), branch `main`, **sem remoto**.
+
+**Regra**: **toda versão nova do app vira um commit.** O passo vem depois da limpeza:
+
+```bash
+./gradlew assembleDebug
+cp app/build/outputs/apk/debug/app-debug.apk NexTasks-3.35-debug.apk
+./tools/limpar-versao.sh
+git add -A
+git commit -m "v3.35 — resumo curto do que mudou"
+```
+
+- **Mensagem**: `vX.Y — resumo` na primeira linha; o porquê nos parágrafos seguintes,
+  em português. Uma versão por commit (sem juntar duas).
+- **`.gitattributes` importa**: nesta máquina `core.autocrlf = true`, e CRLF quebra o
+  bash. O arquivo força **LF** nos `.sh` e **CRLF** nos `.cmd`.
+- **Fora do controle de versão**: `build/`, `.gradle/`, `local.properties`, `*.apk`.
+  O APK é artefato de build — a raiz guarda o mais recente para instalar, mas ele não
+  entra no repositório.
+- `.workbuddy-ai/` **entra** no repositório: é a memória do projeto e explica decisões.
+
+---
+
+## 14. Histórico (resumo)
 
 v1.x calendário e rotinas · v2.x blocos completáveis, cores, Home, tarefas ·
 v3.0–3.21 heatmap, sub-tarefas, eventos, hábitos (121 ícones), ordem das tarefas,

@@ -11,6 +11,10 @@ lembrado de imediato, sem abrir o repositório.
 - **A cada versão nova, rodar `tools/limpar-versao.sh`** logo depois de copiar o APK. Ele deixa
   só o APK mais recente, apaga capturas de teste antigas, apaga snapshots do AVD e **esvazia a
   Lixeira**. A limpeza acontece **na criação da versão**, não numa faxina semanal.
+- **A cada versão nova, commitar.** O projeto é um repositório git local (branch `main`, sem
+  remoto) desde a v3.34. Mensagem: `vX.Y — resumo do que mudou`, em português, uma versão por
+  commit. Ordem: build → copiar APK → limpar → **commit**. Sem commit, a versão não terminou.
+  `*.apk` e `build/` ficam fora do repositório (`.gitignore`).
 - **Neste ambiente `rm` manda para a Lixeira** (função de shell → shim de "safe delete"). Para
   apagar de verdade e liberar espaço: **`/usr/bin/rm`**.
 - **Manter o disco limpo**: lixo pode ser removido sem perguntar a cada vez, inclusive a
