@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.35`, `versionCode 56` |
-| Tamanho | ~81 arquivos Kotlin, ~16.700 linhas, 438 strings |
+| Versão atual | `versionName 3.36`, `versionCode 57` |
+| Tamanho | ~81 arquivos Kotlin, ~16.800 linhas, 438 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -48,11 +48,11 @@ export ANDROID_HOME="/c/Users/Daniel/Android/Sdk"
 cd /c/Users/Daniel/programacao/app
 ./gradlew assembleDebug          # gera app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest      # regras puras em JVM (sem emulador)
+./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` e cobrem as regras que já causaram bug:
-`SubtaskCascade`, `HabitStats`, `Connection`, `RoutineSchedule`, ordenação de tarefas
-e horário dos blocos. Rode antes de fechar qualquer versão.
+Os testes ficam em `app/src/test/` (regras) e `app/src/androidTest/` (toque de verdade,
+hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
 
@@ -107,6 +107,13 @@ home/ calendar/ routines/ tasks/ habits/ connections/ settings/
 components/         cards, campos de formulário, diálogo de nota
 theme/              cores, tipografia, acentos
 ```
+
+No calendário, Dia / 3 dias / Semana compartilham `CalendarTimeGrid`: eixo de horas,
+blocos posicionados pelo horário e **pinça de dois dedos para zoom** (`pinchToZoom`,
+0,6x–2,5x). O zoom mora em `CalendarScreen` (`gridZoom`) para sobreviver à troca de dia
+e de visualização; a grade só recebe `zoom`/`onZoom` e mantém o horário sob os dedos
+(`zoomedScrollOffset`). O `horizontalSwipe` ignora gestos com dois dedos — sem isso a
+pinça trocaria de dia.
 
 `NexTasksApp` cria **todos** os repositórios uma vez (`remember`) e os passa para as telas.
 Não há ViewModel: estado de tela é `remember`/`rememberSaveable` e as escritas vão direto
@@ -306,8 +313,14 @@ ele: conclusões, exceções do dia e conexões. Sem isso o `connections.json` a
 
 ## 10. Playbook de teste no emulador
 
-As regras puras têm teste JVM (`./gradlew testDebugUnitTest`, 59 casos). O que depende
-de Compose/DataStore continua manual, no AVD.
+As regras puras têm teste JVM (`./gradlew testDebugUnitTest`). Gesto tem teste
+instrumentado (`./gradlew connectedDebugAndroidTest`, hoje a pinça da grade). O que
+depende de dados e navegação continua manual, no AVD.
+
+**Cuidado**: `connectedAndroidTest` desinstala os APKs ao terminar, e desinstalar apaga
+os dados do app no emulador. `gradle.properties` já traz
+`android.injected.androidTest.leaveApksInstalledAfterRun=true` para evitar isso — não
+remover essa linha.
 
 ```bash
 # semear dados (o app lê de files/datastore/*.json)

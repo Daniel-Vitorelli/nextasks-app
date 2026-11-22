@@ -10,7 +10,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +53,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -74,6 +77,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 
 private const val PAGE_COUNT = 1200
 private const val BASE_PAGE = PAGE_COUNT / 2
@@ -119,6 +123,9 @@ fun CalendarScreen(
     var expanded by rememberSaveable { mutableStateOf(false) }
     var viewMode by rememberSaveable { mutableStateOf(CalendarViewMode.Schedule) }
     var lastNonMonthView by rememberSaveable { mutableStateOf(CalendarViewMode.Schedule) }
+    // Zoom da grade (pinça de dois dedos). Mora na tela, e não na grade, para
+    // sobreviver à troca de dia e à troca entre Dia / 3 dias / Semana.
+    var gridZoom by rememberSaveable { mutableFloatStateOf(1f) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
     // Arrastar a tira troca de semana mantendo o dia da semana.
@@ -330,6 +337,8 @@ fun CalendarScreen(
                                 selectedDate = date,
                                 onSelectDay = { selectDate(it) },
                                 onEventClick = { actionEvent = it },
+                                zoom = gridZoom,
+                                onZoom = { gridZoom = it },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -641,23 +650,48 @@ private fun Modifier.horizontalSwipe(
     val right by rememberUpdatedState(onSwipeRight)
 
     return pointerInput(Unit) {
-        var accumulated = 0f
-        detectHorizontalDragGestures(
-            onDragStart = { accumulated = 0f },
-            onHorizontalDrag = { change, dragAmount ->
-                change.consume()
-                accumulated += dragAmount
-            },
-            onDragEnd = {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var accumulated = 0f
+            var dragging = false
+            var aborted = false
+
+            while (!aborted) {
+                val event = awaitPointerEvent()
+                // Dois dedos é pinça da grade: não pode virar troca de dia.
+                if (event.changes.count { it.pressed } > 1) {
+                    aborted = true
+                    break
+                }
+
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+
+                val dx = change.positionChange().x
+                val dy = change.positionChange().y
+
+                if (!dragging) {
+                    // Rolagem vertical não é swipe horizontal.
+                    if (abs(dy) > viewConfiguration.touchSlop && abs(dy) > abs(dx)) {
+                        aborted = true
+                    } else if (abs(dx) > viewConfiguration.touchSlop) {
+                        dragging = true
+                    }
+                }
+                if (dragging) {
+                    change.consume()
+                    accumulated += dx
+                }
+            }
+
+            if (dragging && !aborted) {
                 val limit = threshold.toPx()
                 when {
                     accumulated <= -limit -> left()
                     accumulated >= limit -> right()
                 }
-                accumulated = 0f
-            },
-            onDragCancel = { accumulated = 0f },
-        )
+            }
+        }
     }
 }
 
