@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.38`, `versionCode 59` |
-| Tamanho | ~82 arquivos Kotlin, ~17.100 linhas, 450 strings |
+| Versão atual | `versionName 3.39`, `versionCode 60` |
+| Tamanho | ~88 arquivos Kotlin, ~18.800 linhas, 596 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -84,14 +84,16 @@ ui/      telas Compose (uma por seção) + componentes + tema
 | `*Stats.kt`, `SubtaskCascade.kt`, `TaskSort.kt`, `RoutineSchedule.kt` | Regras puras (sem Android) |
 | `TaskCompletion.kt` | Conclusão de tarefa **com** a cascata das sub-tarefas |
 | `Connection*.kt` | Modelo, repositório, motor e sugestões de conexão |
-| `BackupService.kt` | Exporta/importa as 10 tabelas JSON |
+| `Gamification*.kt` | XP, níveis, ranks, catálogo de conquistas e retrato de estatísticas |
+| `GamificationRepository.kt` | Histórico de XP, conquistas e o motor que reconcilia |
+| `BackupService.kt` | Exporta/importa as 12 tabelas JSON |
 
 Cada entidade tem **um arquivo** em `files/datastore/`:
 
 ```
 routines.json  tasks.json  subtasks.json  habits.json  habit_completions.json
 completions.json  agenda_events.json  extra_blocks.json  block_overrides.json
-connections.json  settings.json
+connections.json  settings.json  xp_events.json  achievements.json
 ```
 
 Todos os stores usam `ReplaceFileCorruptionHandler { emptyList() }` (ou `AppSettings()`),
@@ -103,7 +105,7 @@ então **um arquivo corrompido vira lista vazia** em vez de derrubar o app.
 NexTasksApp.kt      hospeda a gaveta, roteia por AppDestination
 AppDestination.kt   enum das seções (rótulo + ícone + addon dono)
 AppIcon.kt          sincroniza o activity-alias com a cor de destaque
-home/ calendar/ routines/ tasks/ habits/ connections/ settings/
+home/ calendar/ routines/ tasks/ habits/ connections/ gamification/ settings/
 components/         cards, campos de formulário, diálogo de nota
 theme/              cores, tipografia, acentos
 ```
@@ -200,6 +202,18 @@ Connection(id, routineId, blockId, taskId?, subtaskId?, habitId?, requiredCount,
 
 Liga **uma** entidade (tarefa, sub-tarefa ou hábito) a **um** bloco. Ver §7.2.
 
+### XpEvent / AchievementUnlock
+
+```kotlin
+XpEvent(id, kind, refKey, amount, createdAt)
+AchievementUnlock(achievementId, unlockedOn)
+```
+
+- `refKey` é a chave de idempotência (`block:<id>:<período>`, `task:<id>:done`…): a mesma
+  ação nunca pontua duas vezes.
+- O total de XP é a **soma do histórico** — não existe contador paralelo.
+- Conquista desbloqueada é permanente; o XP do tier entra uma vez.
+
 ### AppSettings
 
 ```kotlin
@@ -277,19 +291,32 @@ Cruza nome de bloco com nome de entidade: iguais (nota 2) ou um contendo o outro
 **pelo menos 4 letras** (nota 1). Sem esse limite, "ir" casaria com "dormir".
 Ignora pares já conectados e entidades concluídas.
 
-### 7.6 Backup
+### 7.6 Gamificação
 
-Exporta as 10 tabelas JSON. **Não** exporta `settings.json` (tema, cor, addons, ordem) —
+- **XP é ledger, não contador**: `xp_events.json` guarda cada lançamento e o nível é
+  `levelFromXp(soma)`. Curva `75·(L−1)·L/2`, ranks por faixa de nível.
+- Cada ação **reconcilia** o próprio lançamento (`onTaskChanged`, `onHabitChanged`…):
+  desfazer remove, mudar a nota atualiza, repetir não duplica.
+- `reconcile()` refaz todo o XP de domínio a partir dos dados. Roda ao confirmar bloco e
+  ao abrir a tela — cobre o que pontua fora das telas (conexão que conclui tarefa,
+  backup restaurado). Conquistas ficam fora da varredura (são permanentes).
+- Conquistas são avaliadas em laço: o XP de uma pode subir de nível e destravar outra.
+- **Divergência do web**: lá a nota cheia é `10`; aqui a nota é `1..scoreMax` por bloco,
+  então "nota cheia" é `valor == scoreMax`.
+
+### 7.7 Backup
+
+Exporta as 12 tabelas JSON. **Não** exporta `settings.json` (tema, cor, addons, ordem) —
 restaurar um backup não devolve preferências. Depois de restaurar, as conexões são
 podadas: o arquivo pode trazer vínculos de blocos que não vieram junto.
 
-### 7.7 Dado ruim não derruba tela
+### 7.8 Dado ruim não derruba tela
 
 Data/hora gravada como texto pode estar inválida (backup remendado). Use
 `parseIsoDate`/`parseIsoTime` (`Dates.kt`) e trate `null` como "registro ignorado".
 `LocalDate.parse` cru só onde o valor acabou de sair de um seletor do próprio app.
 
-### 7.8 Exclusão limpa o que dependia
+### 7.9 Exclusão limpa o que dependia
 
 Excluir rotina, bloco, tarefa, sub-tarefa ou hábito também apaga o que apontava para
 ele: conclusões, exceções do dia e conexões. Sem isso o `connections.json` acumula
@@ -380,7 +407,7 @@ O print (`screencap`) serve para **conferir** o resultado, não para medir o toq
 
 ## 12. Pendências
 
-- **Gamificação e IA** são páginas placeholder — sem pontos, conquistas ou chat.
+- **Assistente IA** é página placeholder — não há chat.
 - **Conexões**: desmarcar o bloco reabre tarefa/sub-tarefa, mas **não** desfaz hábito —
   a conexão não sabe separar o que foi dela do que o usuário marcou à mão. Só dá para
   resolver registrando a origem de cada marcação.

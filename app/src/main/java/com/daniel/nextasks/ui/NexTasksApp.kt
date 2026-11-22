@@ -65,10 +65,12 @@ import com.daniel.nextasks.data.AppSettings
 import com.daniel.nextasks.data.isAddonEnabled
 import com.daniel.nextasks.data.BackupService
 import com.daniel.nextasks.data.CompletionRepository
+import com.daniel.nextasks.data.AchievementRepository
 import com.daniel.nextasks.data.ConnectionEngine
 import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.BlockOverrideRepository
 import com.daniel.nextasks.data.EventRepository
+import com.daniel.nextasks.data.GamificationEngine
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.ExtraBlockRepository
 import com.daniel.nextasks.data.RoutineRepository
@@ -77,15 +79,18 @@ import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.TaskCompletion
 import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.TaskSortSettings
+import com.daniel.nextasks.data.XpRepository
 import com.daniel.nextasks.ui.habits.HabitsScreen
 import com.daniel.nextasks.ui.home.HomeScreen
 import com.daniel.nextasks.ui.tasks.TasksScreen
 import com.daniel.nextasks.ui.calendar.CalendarScreen
 import com.daniel.nextasks.ui.connections.ConnectionsScreen
+import com.daniel.nextasks.ui.gamification.GamificationScreen
 import com.daniel.nextasks.ui.routines.RoutinesScreen
 import com.daniel.nextasks.ui.settings.SettingsScreen
 import com.daniel.nextasks.ui.theme.NexTasksTheme
 import kotlinx.coroutines.flow.first
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 /**
@@ -124,6 +129,21 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
             taskCompletion = taskCompletion,
             subtaskRepository = subtaskRepository,
             habitRepository = habitRepository,
+            settingsRepository = settingsRepository,
+        )
+    }
+    val xpRepository = remember(context) { XpRepository(context) }
+    val achievementRepository = remember(context) { AchievementRepository(context) }
+    val gamificationEngine = remember(context) {
+        GamificationEngine(
+            xpRepository = xpRepository,
+            achievementRepository = achievementRepository,
+            routineRepository = routineRepository,
+            completionRepository = completionRepository,
+            taskRepository = taskRepository,
+            subtaskRepository = subtaskRepository,
+            habitRepository = habitRepository,
+            connectionRepository = connectionRepository,
             settingsRepository = settingsRepository,
         )
     }
@@ -186,11 +206,17 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
         when (current) {
             AppDestination.Calendar -> CalendarScreen(
                 onOpenDrawer = { scope.launch { drawerState.open() } },
-                onBlockConfirmed = { blockId ->
-                    scope.launch { connectionEngine.onBlockConfirmed(blockId) }
+                onBlockConfirmed = { blockId, period ->
+                    scope.launch {
+                        connectionEngine.onBlockConfirmed(blockId)
+                        gamificationEngine.reconcile()
+                    }
                 },
-                onBlockUnconfirmed = { blockId ->
-                    scope.launch { connectionEngine.onBlockUnconfirmed(blockId) }
+                onBlockUnconfirmed = { blockId, period ->
+                    scope.launch {
+                        connectionEngine.onBlockUnconfirmed(blockId)
+                        gamificationEngine.reconcile()
+                    }
                 },
                 routineRepository = routineRepository,
                 completionRepository = completionRepository,
@@ -212,6 +238,19 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 },
             )
 
+            AppDestination.Gamification -> GamificationScreen(
+                gamification = gamificationEngine,
+                xpRepository = xpRepository,
+                achievementRepository = achievementRepository,
+                routineRepository = routineRepository,
+                completionRepository = completionRepository,
+                taskRepository = taskRepository,
+                subtaskRepository = subtaskRepository,
+                habitRepository = habitRepository,
+                connectionRepository = connectionRepository,
+                onOpenDrawer = { scope.launch { drawerState.open() } },
+            )
+
             AppDestination.Routines -> RoutinesScreen(
                 repository = routineRepository,
                 completionRepository = completionRepository,
@@ -228,6 +267,8 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 taskSort = settings.taskSort,
                 onTaskDone = { taskId -> scope.launch { connectionEngine.onTaskDone(taskId) } },
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
+                onTaskChanged = { id -> scope.launch { gamificationEngine.onTaskChanged(id) } },
+                onSubtaskChanged = { id -> scope.launch { gamificationEngine.onSubtaskChanged(id) } },
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
@@ -253,15 +294,29 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 destination = current,
                 userName = settings.userName,
                 taskSort = settings.taskSort,
-                onBlockConfirmed = { blockId ->
-                    scope.launch { connectionEngine.onBlockConfirmed(blockId) }
+                onBlockConfirmed = { blockId, period ->
+                    scope.launch {
+                        connectionEngine.onBlockConfirmed(blockId)
+                        gamificationEngine.reconcile()
+                    }
                 },
-                onBlockUnconfirmed = { blockId ->
-                    scope.launch { connectionEngine.onBlockUnconfirmed(blockId) }
+                onBlockUnconfirmed = { blockId, period ->
+                    scope.launch {
+                        connectionEngine.onBlockUnconfirmed(blockId)
+                        gamificationEngine.reconcile()
+                    }
                 },
                 onTaskDone = { taskId -> scope.launch { connectionEngine.onTaskDone(taskId) } },
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
                 onHabitDone = { id -> scope.launch { connectionEngine.onHabitDone(id) } },
+                onTaskChanged = { id -> scope.launch { gamificationEngine.onTaskChanged(id) } },
+                onSubtaskChanged = { id -> scope.launch { gamificationEngine.onSubtaskChanged(id) } },
+                onHabitChanged = { id, date ->
+                    scope.launch { gamificationEngine.onHabitChanged(id, date) }
+                },
+                xpRepository = xpRepository,
+                achievementRepository = achievementRepository,
+                gamificationEngine = gamificationEngine,
                 taskCompletion = taskCompletion,
                 routineRepository = routineRepository,
                 completionRepository = completionRepository,
@@ -284,11 +339,17 @@ private fun SectionScaffold(
     destination: AppDestination,
     userName: String,
     taskSort: TaskSortSettings,
-    onBlockConfirmed: (String) -> Unit,
-    onBlockUnconfirmed: (String) -> Unit,
+    onBlockConfirmed: (String, LocalDate) -> Unit,
+    onBlockUnconfirmed: (String, LocalDate) -> Unit,
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
+    onTaskChanged: (String) -> Unit,
+    onSubtaskChanged: (String) -> Unit,
+    onHabitChanged: (String, LocalDate) -> Unit,
+    xpRepository: XpRepository,
+    achievementRepository: AchievementRepository,
+    gamificationEngine: GamificationEngine,
     taskCompletion: TaskCompletion,
     routineRepository: RoutineRepository,
     completionRepository: CompletionRepository,
@@ -337,6 +398,12 @@ private fun SectionScaffold(
             onTaskDone = onTaskDone,
             onSubtaskDone = onSubtaskDone,
             onHabitDone = onHabitDone,
+            onTaskChanged = onTaskChanged,
+            onSubtaskChanged = onSubtaskChanged,
+            onHabitChanged = onHabitChanged,
+            xpRepository = xpRepository,
+            achievementRepository = achievementRepository,
+            gamificationEngine = gamificationEngine,
             taskCompletion = taskCompletion,
             routineRepository = routineRepository,
             completionRepository = completionRepository,
@@ -462,11 +529,17 @@ private fun SectionContent(
     habitRepository: HabitRepository,
     userName: String,
     taskSort: TaskSortSettings,
-    onBlockConfirmed: (String) -> Unit,
-    onBlockUnconfirmed: (String) -> Unit,
+    onBlockConfirmed: (String, LocalDate) -> Unit,
+    onBlockUnconfirmed: (String, LocalDate) -> Unit,
     onTaskDone: (String) -> Unit,
     onSubtaskDone: (String) -> Unit,
     onHabitDone: (String) -> Unit,
+    onTaskChanged: (String) -> Unit,
+    onSubtaskChanged: (String) -> Unit,
+    onHabitChanged: (String, LocalDate) -> Unit,
+    xpRepository: XpRepository,
+    achievementRepository: AchievementRepository,
+    gamificationEngine: GamificationEngine,
     taskCompletion: TaskCompletion,
     onNavigate: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
@@ -489,6 +562,9 @@ private fun SectionContent(
             onTaskDone = onTaskDone,
             onSubtaskDone = onSubtaskDone,
             onHabitDone = onHabitDone,
+            onTaskChanged = onTaskChanged,
+            onSubtaskChanged = onSubtaskChanged,
+            onHabitChanged = onHabitChanged,
             onOpenRoutines = { onNavigate(AppDestination.Routines) },
             onOpenTasks = { onNavigate(AppDestination.Tasks) },
             modifier = modifier,

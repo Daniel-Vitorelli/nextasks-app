@@ -107,6 +107,16 @@ class BackupService(context: Context) {
             ListSerializer(BlockOverride.serializer()),
             emptyList(),
         ),
+        // Gamificação: sem estas duas, restaurar um backup perderia nível, XP e
+        // conquistas — e o XP não dá para recalcular, porque o valor depende de
+        // quando cada ação aconteceu.
+        table("xp_events.json", app.xpStore, ListSerializer(XpEvent.serializer()), emptyList()),
+        table(
+            "achievements.json",
+            app.achievementStore,
+            ListSerializer(AchievementUnlock.serializer()),
+            emptyList(),
+        ),
     )
 
     /** Gera o backup completo como JSON indentado. */

@@ -96,9 +96,9 @@ private const val BASE_PAGE = PAGE_COUNT / 2
 fun CalendarScreen(
     onOpenDrawer: () -> Unit,
     /** Chamado depois de confirmar um bloco — as conexões reagem a isso. */
-    onBlockConfirmed: (String) -> Unit = {},
+    onBlockConfirmed: (String, LocalDate) -> Unit = { _, _ -> },
     /** Desmarcar a confirmação: a conexão desfaz o que ela tinha concluído. */
-    onBlockUnconfirmed: (String) -> Unit = {},
+    onBlockUnconfirmed: (String, LocalDate) -> Unit = { _, _ -> },
     routineRepository: RoutineRepository,
     completionRepository: CompletionRepository,
     overrideRepository: BlockOverrideRepository,
@@ -295,9 +295,9 @@ fun CalendarScreen(
                                         scope.launch {
                                             completionRepository.set(blockId, period, value)
                                             if (value != null) {
-                                                onBlockConfirmed(blockId)
+                                                onBlockConfirmed(blockId, period)
                                             } else {
-                                                onBlockUnconfirmed(blockId)
+                                                onBlockUnconfirmed(blockId, period)
                                             }
                                         }
                                     }

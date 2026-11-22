@@ -85,6 +85,9 @@ fun TasksScreen(
     /** Avisa as conexões que a tarefa foi concluída. */
     onTaskDone: (String) -> Unit = {},
     onSubtaskDone: (String) -> Unit = {},
+    /** Chamado depois de qualquer mudança, para o XP refletir o estado atual. */
+    onTaskChanged: (String) -> Unit = {},
+    onSubtaskChanged: (String) -> Unit = {},
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -184,6 +187,7 @@ fun TasksScreen(
                                 // Concluir a tarefa conclui as sub-tarefas (como no web).
                                 taskCompletion.setDone(task.id, !task.done)
                                 if (!task.done) onTaskDone(task.id)
+                                onTaskChanged(task.id)
                             }
                         },
                         onEdit = {
@@ -261,6 +265,8 @@ fun TasksScreen(
                         if (shouldBeDone != null) {
                             repository.setDone(sub.taskId, shouldBeDone)
                             if (shouldBeDone) onSubtaskDone(sub.id)
+                            onSubtaskChanged(sub.id)
+                            onTaskChanged(sub.taskId)
                         }
                     }
                 },

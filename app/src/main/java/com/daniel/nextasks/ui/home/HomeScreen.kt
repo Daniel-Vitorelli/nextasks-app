@@ -122,9 +122,13 @@ fun HomeScreen(
     /** Ordem das tarefas escolhida em Ajustes. */
     taskSort: TaskSortSettings = TaskSortSettings(),
     /** Chamado depois de confirmar um bloco — as conexões reagem a isso. */
-    onBlockConfirmed: (String) -> Unit = {},
+    onBlockConfirmed: (String, LocalDate) -> Unit = { _, _ -> },
     /** Desmarcar a confirmação: a conexão desfaz o que ela tinha concluído. */
-    onBlockUnconfirmed: (String) -> Unit = {},
+    onBlockUnconfirmed: (String, LocalDate) -> Unit = { _, _ -> },
+    /** Chamado depois de qualquer mudança de tarefa/sub-tarefa/hábito (XP). */
+    onTaskChanged: (String) -> Unit = {},
+    onSubtaskChanged: (String) -> Unit = {},
+    onHabitChanged: (String, LocalDate) -> Unit = { _, _ -> },
     /** Chamado quando uma tarefa é concluída — idem. */
     onTaskDone: (String) -> Unit = {},
     onSubtaskDone: (String) -> Unit = {},
@@ -230,7 +234,11 @@ fun HomeScreen(
         val period = event.completionPeriodStart ?: return
         scope.launch {
             completionRepository.set(blockId, period, value)
-            if (value != null) onBlockConfirmed(blockId) else onBlockUnconfirmed(blockId)
+            if (value != null) {
+                onBlockConfirmed(blockId, period)
+            } else {
+                onBlockUnconfirmed(blockId, period)
+            }
         }
     }
 
@@ -330,6 +338,7 @@ fun HomeScreen(
                         // Marca e, se bateu a meta, avisa as conexões.
                         suspend fun markHabit() {
                             val total = habitRepository.complete(habit, today)
+                            onHabitChanged(habit.id, today)
                             val target = habit.targetCount ?: return
                             if (habit.hasGoal && total >= target) onHabitDone(habit.id)
                         }
@@ -343,6 +352,7 @@ fun HomeScreen(
                                     if (habit.kind == HabitKind.Bad) {
                                         if (count > 0) {
                                             habitRepository.undo(habit.id, today)
+                                            onHabitChanged(habit.id, today)
                                         } else {
                                             markHabit()
                                         }
@@ -352,7 +362,10 @@ fun HomeScreen(
                                 }
                             },
                             onLongPress = {
-                                scope.launch { habitRepository.undo(habit.id, today) }
+                                scope.launch {
+                                    habitRepository.undo(habit.id, today)
+                                    onHabitChanged(habit.id, today)
+                                }
                             },
                         )
                         Spacer(Modifier.height(8.dp))
@@ -387,6 +400,7 @@ fun HomeScreen(
                             // Pelo TaskCompletion: concluir aqui também conclui as sub-tarefas.
                             taskCompletion.setDone(task.id, becomingDone)
                             if (becomingDone) onTaskDone(task.id)
+                            onTaskChanged(task.id)
                         }
                     },
                     onClick = onOpenTasks,
@@ -401,6 +415,7 @@ fun HomeScreen(
                                 if (shouldBeDone != null) {
                                     taskRepository.setDone(task.id, shouldBeDone)
                                     if (shouldBeDone) onSubtaskDone(node.subtask.id)
+                                    onSubtaskChanged(node.subtask.id)
                                 }
                             }
                         },
