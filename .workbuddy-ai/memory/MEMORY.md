@@ -29,7 +29,11 @@ lembrado de imediato, sem abrir o repositório.
   Hilt, sem Navigation-Compose (navegação é `enum AppDestination` + `when`).
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
+- **Testes**: `./gradlew testDebugUnitTest` — 59 casos JVM das regras puras (cascata,
+  hábitos, conexões, ocorrências, ordenação, horário de bloco). Roda sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
+  Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
+  `emulator.exe -avd NexTasks_API36 -no-snapshot` direto.
 
 ## Regras de negócio que já causaram bug
 
@@ -37,6 +41,11 @@ lembrado de imediato, sem abrir o repositório.
 - Só uma rotina ativa por vez; bloco só é confirmável **depois** do horário de início.
 - Conexões funcionam nos **dois sentidos** (bloco→entidade e entidade→bloco); confirmações
   anteriores à criação não contam.
+- **Concluir tarefa sempre pelo `TaskCompletion`**, nunca `setDone` direto: a cascata das
+  sub-tarefas depende disso. Home e motor de conexões já esqueceram.
+- **`Routine.coversDay`** é a única resposta para "a rotina acontece neste dia?" (inativa,
+  antes do `createdAt`, depois do `endDate`). Calendário e gráfico divergiam.
+- Sequência de hábito conta **dias agendados**, não dias de calendário.
 - Addon desligado desliga **comportamento**, não só a tela — mas só quando existe comportamento
   real (hoje: apenas Conexões).
 
@@ -48,11 +57,12 @@ lembrado de imediato, sem abrir o repositório.
 - `collectAsState(initial = emptyList())` entrega vazio antes do primeiro valor real — nunca
   podar/apagar dados com base nele (usar `.first()`).
 - `LaunchedEffect(Unit)` roda antes das preferências carregarem (ainda são o padrão).
+- **Toque no emulador não se mede pelo print**: o `screencap` é 1080x2400 e o visualizador
+  reescala. Usar `uiautomator dump` e tocar no centro dos `bounds`.
 
 ## Pendências
 
 - Gamificação e IA são placeholders (sem pontos, conquistas ou chat).
-- Gate de conexões com addon desligado: implementado, **não verificado em execução**.
 - Backup não inclui preferências (`settings.json`).
 
 ## Histórico
