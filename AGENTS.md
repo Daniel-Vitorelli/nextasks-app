@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.39`, `versionCode 60` |
-| Tamanho | ~88 arquivos Kotlin, ~18.800 linhas, 596 strings |
+| Versão atual | `versionName 3.40`, `versionCode 61` |
+| Tamanho | ~88 arquivos Kotlin, ~18.760 linhas, 596 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.

@@ -74,10 +74,6 @@ class XpRepository(context: Context) {
         }
     }
 
-    /** Remove tudo que aponta para uma entidade excluída (prefixo do refKey). */
-    suspend fun revokeByPrefix(prefix: String) {
-        store.updateData { current -> current.filterNot { it.refKey.startsWith(prefix) } }
-    }
 }
 
 /** Lançamento desejado de XP (kind, valor e chave). */
@@ -132,8 +128,8 @@ class GamificationEngine(
         settingsRepository.settings.first().isAddonEnabled(Addon.Gamification)
     }.getOrDefault(false)
 
-    /** Retrato atual das estatísticas (usado pela tela e pelas conquistas). */
-    suspend fun stats(today: LocalDate = LocalDate.now()): GamificationStats = gamificationStats(
+    /** Retrato atual, usado para avaliar as conquistas. */
+    private suspend fun stats(today: LocalDate): GamificationStats = gamificationStats(
         routines = routineRepository.routines.first(),
         completions = completionRepository.completions.first(),
         tasks = taskRepository.tasks.first(),

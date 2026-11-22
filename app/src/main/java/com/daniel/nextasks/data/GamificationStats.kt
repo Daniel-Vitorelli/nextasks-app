@@ -186,7 +186,3 @@ fun gamificationStats(
         currentCleanStreak = currentCleanStreak,
     )
 }
-
-/** Dias entre duas datas, para o card de "há quanto tempo". */
-fun daysSince(date: LocalDate, today: LocalDate): Int =
-    ChronoUnit.DAYS.between(date, today).toInt()
