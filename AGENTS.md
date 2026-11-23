@@ -237,11 +237,18 @@ desligados, não aparecem na gaveta e só existem depois de ativados em Configur
 | Addon | Comportamento quando desligado |
 |---|---|
 | Conexões | O motor não roda (não conclui tarefa, não confirma bloco) e a poda de órfãs não roda |
-| Gamificação | Nada — só a página (é placeholder). Não esconder "Sequência" da Home |
+| Gamificação | O motor não **escreve**: `enabled()` barra `reconcile`, `onTaskChanged`, `onSubtaskChanged`, `onHabitChanged` e `refreshAchievements`. Nada é apagado — `xp_events.json` e `achievements.json` ficam intactos |
 | IA | Nada — só a página (placeholder) |
 
-Quando a gamificação ganhar pontos/conquistas de verdade, é ali que se aplica o portão —
-e **só** então.
+O portão da gamificação é de **escrita**, não de leitura. Enquanto está desligada, concluir
+tarefa, marcar hábito ou confirmar bloco não lança XP nem desbloqueia conquista — mas os
+dados que geram XP continuam sendo gravados. Ao religar, o primeiro `reconcile` (abrir a
+tela, confirmar bloco ou excluir tarefa) refaz o XP de domínio a partir do estado atual e
+credita o período retroativo; conquistas já desbloqueadas são permanentes e ficam fora
+dessa varredura.
+
+Não confundir com a **Sequência** da Home: ela é da rotina (`routineStats`), não da
+gamificação, e continua aparecendo com o addon desligado.
 
 ---
 
