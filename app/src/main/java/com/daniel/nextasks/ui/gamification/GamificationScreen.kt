@@ -1,5 +1,9 @@
 package com.daniel.nextasks.ui.gamification
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -317,6 +321,16 @@ private fun LevelHero(
     val progress = levelProgress(stats.totalXp)
     val rank = rankFor(progress.level, unlocked)
     val next = nextRank(progress.level, unlocked)
+    val animatedXp by animateIntAsState(
+        targetValue = stats.totalXp,
+        animationSpec = tween(700),
+        label = "heroXp",
+    )
+    val animatedPercent by animateIntAsState(
+        targetValue = progress.percent,
+        animationSpec = tween(900, easing = FastOutSlowInEasing),
+        label = "heroPercent",
+    )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -349,7 +363,7 @@ private fun LevelHero(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = stringResource(R.string.gamification_xp_total, stats.totalXp),
+                        text = stringResource(R.string.gamification_xp_total, animatedXp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -366,7 +380,7 @@ private fun LevelHero(
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "${progress.percent}%",
+                    text = "$animatedPercent%",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -448,6 +462,11 @@ private fun LevelHero(
 private fun LevelRing(level: Int, percent: Int) {
     val track = MaterialTheme.colorScheme.surfaceVariant
     val accent = MaterialTheme.colorScheme.primary
+    val animatedPercent by animateFloatAsState(
+        targetValue = percent.coerceIn(0, 100) / 100f,
+        animationSpec = tween(900, easing = FastOutSlowInEasing),
+        label = "levelRing",
+    )
 
     Box(modifier = Modifier.size(96.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -468,7 +487,7 @@ private fun LevelRing(level: Int, percent: Int) {
             drawArc(
                 color = accent,
                 startAngle = -90f,
-                sweepAngle = 360f * (percent.coerceIn(0, 100) / 100f),
+                sweepAngle = 360f * animatedPercent,
                 useCenter = false,
                 topLeft = topLeft,
                 size = arcSize,
@@ -628,18 +647,74 @@ private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
                 text = if (next == null) {
                     stringResource(R.string.gamification_last_rank)
                 } else {
-                    stringResource(
-                        R.string.gamification_next_rank_detail,
-                        stringResource(next.label),
-                        next.minLevel,
-                        next.minAchievements,
-                    )
+                    stringResource(R.string.gamification_rank_next, stringResource(next.label))
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (next != null) {
+                Spacer(Modifier.height(10.dp))
+                RankRequirement(
+                    label = stringResource(R.string.gamification_stat_level),
+                    current = level,
+                    target = next.minLevel,
+                    color = rankColor(current),
+                )
+                Spacer(Modifier.height(6.dp))
+                RankRequirement(
+                    label = stringResource(R.string.gamification_tab_achievements),
+                    current = achievements,
+                    target = next.minAchievements,
+                    color = rankColor(current),
+                )
+            }
         }
     }
+}
+
+/** Requisito do próximo rank: valor atual, alvo e barra. */
+@Composable
+private fun RankRequirement(label: String, current: Int, target: Int, color: Color) {
+    val ratio = if (target <= 0) 1f else (current.toFloat() / target).coerceIn(0f, 1f)
+    val animated by animateFloatAsState(
+        targetValue = ratio,
+        animationSpec = tween(700),
+        label = "rankRequirement",
+    )
+    val met = ratio >= 1f
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "$current/$target",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (met) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+    Spacer(Modifier.height(3.dp))
+    LinearProgressIndicator(
+        progress = { animated },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .clip(RoundedCornerShape(2.dp)),
+        color = if (met) MaterialTheme.colorScheme.primary else color,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+    )
 }
 
 /** Brasão hexagonal do rank, com o ícone da faixa no centro. */
@@ -1034,33 +1109,52 @@ private fun AchievementsTab(
     }
 }
 
-/** Cabeçalho de família: ícone, nome e quantas já caíram. */
+/** Cabeçalho de família: ícone, nome, quantas já caíram e uma barra de progresso. */
 @Composable
 private fun CategoryHeader(category: AchievementCategory, unlocked: Int, total: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(category.icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(15.dp),
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = stringResource(category.label).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = stringResource(R.string.gamification_unlocked_count, unlocked, total),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val ratio = if (total == 0) 0f else unlocked.toFloat() / total
+    val animated by animateFloatAsState(
+        targetValue = ratio,
+        animationSpec = tween(600),
+        label = "categoryProgress",
+    )
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(category.icon),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(15.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(category.label).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.gamification_unlocked_count, unlocked, total),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(5.dp))
+        LinearProgressIndicator(
+            progress = { animated },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
     }
 }
@@ -1073,6 +1167,13 @@ private fun AchievementsSummary(
     almost: Achievement?,
     stats: GamificationStats,
 ) {
+    val summaryRatio = if (total == 0) 0f else unlocked.toFloat() / total
+    val animatedSummary by animateFloatAsState(
+        targetValue = summaryRatio,
+        animationSpec = tween(700),
+        label = "summaryProgress",
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -1102,7 +1203,7 @@ private fun AchievementsSummary(
             Spacer(Modifier.height(8.dp))
 
             LinearProgressIndicator(
-                progress = { if (total == 0) 0f else unlocked.toFloat() / total },
+                progress = { animatedSummary },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
@@ -1166,6 +1267,11 @@ private fun AchievementRow(
     val unlocked = unlockedOn != null
     val color = tierColor(achievement.tier)
     val detail = if (unlocked) null else achievement.progressDetail(stats)
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (unlocked) 1f else achievement.progress(stats),
+        animationSpec = tween(500),
+        label = "achievementProgress",
+    )
 
     Surface(
         modifier = Modifier
@@ -1231,7 +1337,7 @@ private fun AchievementRow(
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LinearProgressIndicator(
-                            progress = { achievement.progress(stats) },
+                            progress = { animatedProgress },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(4.dp)
@@ -1421,24 +1527,46 @@ private fun ConditionRow(
 @Composable
 private fun Medal(tier: AchievementTier, category: AchievementCategory, unlocked: Boolean) {
     val color = tierColor(tier)
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = if (unlocked) 0.18f else 0.07f))
-            .border(
-                width = 1.dp,
-                color = color.copy(alpha = if (unlocked) 0.55f else 0.20f),
-                shape = CircleShape,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(category.icon),
-            contentDescription = null,
-            tint = if (unlocked) color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-            modifier = Modifier.size(19.dp),
-        )
+
+    Box(modifier = Modifier.size(36.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .background(color.copy(alpha = if (unlocked) 0.18f else 0.07f))
+                .border(
+                    width = 1.dp,
+                    color = color.copy(alpha = if (unlocked) 0.55f else 0.20f),
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(category.icon),
+                contentDescription = null,
+                tint = if (unlocked) color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                modifier = Modifier.size(19.dp),
+            )
+        }
+
+        if (unlocked) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(9.dp),
+                )
+            }
+        }
     }
 }
 
@@ -1794,13 +1922,6 @@ private fun statLabel(stat: GamificationStat): Int = when (stat) {
     GamificationStat.BestCleanStreak -> R.string.gamification_stat_clean
     GamificationStat.TotalXp -> R.string.gamification_stat_total_xp
     GamificationStat.Level -> R.string.gamification_stat_level
-}
-
-private fun tierColor(tier: AchievementTier): Color = when (tier) {
-    AchievementTier.Bronze -> Color(0xFFCD7F32)
-    AchievementTier.Silver -> Color(0xFFB0BEC5)
-    AchievementTier.Gold -> Color(0xFFFFC107)
-    AchievementTier.Platinum -> Color(0xFF64B5F6)
 }
 
 @Composable

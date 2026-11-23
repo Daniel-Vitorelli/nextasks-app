@@ -99,14 +99,18 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("block-250", AchievementCategory.Blocks, AchievementTier.Gold, R.string.ach_block_250_name, R.string.ach_block_250_desc, GamificationStat.BlocksConfirmed to 250),
     a("block-500", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_block_500_name, R.string.ach_block_500_desc, GamificationStat.BlocksConfirmed to 500),
     a("block-1000", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_block_1000_name, R.string.ach_block_1000_desc, GamificationStat.BlocksConfirmed to 1000),
+    a("block-2000", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_block_2000_name, R.string.ach_block_2000_desc, GamificationStat.BlocksConfirmed to 2000),
     a("perfect-day", AchievementCategory.Blocks, AchievementTier.Silver, R.string.ach_perfect_day_name, R.string.ach_perfect_day_desc, GamificationStat.Days100 to 1),
     a("perfect-days-10", AchievementCategory.Blocks, AchievementTier.Silver, R.string.ach_perfect_days_10_name, R.string.ach_perfect_days_10_desc, GamificationStat.Days100 to 10),
+    a("perfect-days-30", AchievementCategory.Blocks, AchievementTier.Gold, R.string.ach_perfect_days_30_name, R.string.ach_perfect_days_30_desc, GamificationStat.Days100 to 30),
     a("perfect-days-50", AchievementCategory.Blocks, AchievementTier.Gold, R.string.ach_perfect_days_50_name, R.string.ach_perfect_days_50_desc, GamificationStat.Days100 to 50),
     a("perfect-days-100", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_perfect_days_100_name, R.string.ach_perfect_days_100_desc, GamificationStat.Days100 to 100),
+    a("perfect-days-200", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_perfect_days_200_name, R.string.ach_perfect_days_200_desc, GamificationStat.Days100 to 200),
     a("streak-week-full", AchievementCategory.Blocks, AchievementTier.Gold, R.string.ach_streak_week_name, R.string.ach_streak_week_desc, GamificationStat.BestRoutineStreak to 7),
     a("streak-14", AchievementCategory.Blocks, AchievementTier.Gold, R.string.ach_streak_14_name, R.string.ach_streak_14_desc, GamificationStat.BestRoutineStreak to 14),
     a("streak-month-full", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_streak_month_name, R.string.ach_streak_month_desc, GamificationStat.BestRoutineStreak to 30),
     a("streak-60", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_streak_60_name, R.string.ach_streak_60_desc, GamificationStat.BestRoutineStreak to 60),
+    a("streak-100", AchievementCategory.Blocks, AchievementTier.Platinum, R.string.ach_streak_100_name, R.string.ach_streak_100_desc, GamificationStat.BestRoutineStreak to 100),
 
     // ---------- Tarefas e sub-tarefas ----------
     a("first-task", AchievementCategory.Tasks, AchievementTier.Bronze, R.string.ach_first_task_name, R.string.ach_first_task_desc, GamificationStat.TasksDone to 1),
@@ -116,10 +120,13 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("task-50", AchievementCategory.Tasks, AchievementTier.Silver, R.string.ach_task_50_name, R.string.ach_task_50_desc, GamificationStat.TasksDone to 50),
     a("task-100", AchievementCategory.Tasks, AchievementTier.Platinum, R.string.ach_task_100_name, R.string.ach_task_100_desc, GamificationStat.TasksDone to 100),
     a("task-250", AchievementCategory.Tasks, AchievementTier.Platinum, R.string.ach_task_250_name, R.string.ach_task_250_desc, GamificationStat.TasksDone to 250),
+    a("task-500", AchievementCategory.Tasks, AchievementTier.Platinum, R.string.ach_task_500_name, R.string.ach_task_500_desc, GamificationStat.TasksDone to 500),
+    a("task-1000", AchievementCategory.Tasks, AchievementTier.Platinum, R.string.ach_task_1000_name, R.string.ach_task_1000_desc, GamificationStat.TasksDone to 1000),
     a("subtask-10", AchievementCategory.Tasks, AchievementTier.Bronze, R.string.ach_subtask_10_name, R.string.ach_subtask_10_desc, GamificationStat.SubtasksDone to 10),
     a("subtask-25", AchievementCategory.Tasks, AchievementTier.Bronze, R.string.ach_subtask_25_name, R.string.ach_subtask_25_desc, GamificationStat.SubtasksDone to 25),
     a("subtask-50", AchievementCategory.Tasks, AchievementTier.Silver, R.string.ach_subtask_50_name, R.string.ach_subtask_50_desc, GamificationStat.SubtasksDone to 50),
     a("subtask-100", AchievementCategory.Tasks, AchievementTier.Gold, R.string.ach_subtask_100_name, R.string.ach_subtask_100_desc, GamificationStat.SubtasksDone to 100),
+    a("subtask-250", AchievementCategory.Tasks, AchievementTier.Platinum, R.string.ach_subtask_250_name, R.string.ach_subtask_250_desc, GamificationStat.SubtasksDone to 250),
 
     // ---------- Hábitos bons ----------
     a("first-checkin", AchievementCategory.Habits, AchievementTier.Bronze, R.string.ach_first_checkin_name, R.string.ach_first_checkin_desc, GamificationStat.HabitTargetDays to 1),
@@ -131,9 +138,12 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("checkin-100", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_checkin_100_name, R.string.ach_checkin_100_desc, GamificationStat.HabitTargetDays to 100),
     a("checkin-250", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_checkin_250_name, R.string.ach_checkin_250_desc, GamificationStat.HabitTargetDays to 250),
     a("checkin-500", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_checkin_500_name, R.string.ach_checkin_500_desc, GamificationStat.HabitTargetDays to 500),
+    a("checkin-750", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_checkin_750_name, R.string.ach_checkin_750_desc, GamificationStat.HabitTargetDays to 750),
+    a("checkin-1000", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_checkin_1000_name, R.string.ach_checkin_1000_desc, GamificationStat.HabitTargetDays to 1000),
     a("three-good-habits", AchievementCategory.Habits, AchievementTier.Bronze, R.string.ach_three_good_name, R.string.ach_three_good_desc, GamificationStat.GoodHabitsActive to 3),
     a("five-good-habits", AchievementCategory.Habits, AchievementTier.Silver, R.string.ach_five_good_name, R.string.ach_five_good_desc, GamificationStat.GoodHabitsActive to 5),
     a("ten-good-habits", AchievementCategory.Habits, AchievementTier.Gold, R.string.ach_ten_good_name, R.string.ach_ten_good_desc, GamificationStat.GoodHabitsActive to 10),
+    a("fifteen-good-habits", AchievementCategory.Habits, AchievementTier.Platinum, R.string.ach_fifteen_good_name, R.string.ach_fifteen_good_desc, GamificationStat.GoodHabitsActive to 15),
 
     // ---------- Hábitos ruins e dias limpos ----------
     a("bad-habits-1", AchievementCategory.Clean, AchievementTier.Bronze, R.string.ach_bad_habits_1_name, R.string.ach_bad_habits_1_desc, GamificationStat.BadHabitsActive to 1),
@@ -145,6 +155,8 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("clean-60", AchievementCategory.Clean, AchievementTier.Gold, R.string.ach_clean_60_name, R.string.ach_clean_60_desc, GamificationStat.BestCleanStreak to 60),
     a("clean-90", AchievementCategory.Clean, AchievementTier.Platinum, R.string.ach_clean_90_name, R.string.ach_clean_90_desc, GamificationStat.BestCleanStreak to 90),
     a("clean-180", AchievementCategory.Clean, AchievementTier.Platinum, R.string.ach_clean_180_name, R.string.ach_clean_180_desc, GamificationStat.BestCleanStreak to 180),
+    a("clean-365", AchievementCategory.Clean, AchievementTier.Platinum, R.string.ach_clean_365_name, R.string.ach_clean_365_desc, GamificationStat.BestCleanStreak to 365),
+    a("clean-500", AchievementCategory.Clean, AchievementTier.Platinum, R.string.ach_clean_500_name, R.string.ach_clean_500_desc, GamificationStat.BestCleanStreak to 500),
     a("resilience", AchievementCategory.Clean, AchievementTier.Gold, R.string.ach_resilience_name, R.string.ach_resilience_desc, GamificationStat.RelapsesLogged to 1, GamificationStat.BestCleanStreak to 7),
 
     // ---------- Conexões ----------
@@ -153,12 +165,14 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("link-10", AchievementCategory.Connections, AchievementTier.Silver, R.string.ach_link_10_name, R.string.ach_link_10_desc, GamificationStat.ActiveConnections to 10),
     a("link-25", AchievementCategory.Connections, AchievementTier.Gold, R.string.ach_link_25_name, R.string.ach_link_25_desc, GamificationStat.ActiveConnections to 25),
     a("link-50", AchievementCategory.Connections, AchievementTier.Platinum, R.string.ach_link_50_name, R.string.ach_link_50_desc, GamificationStat.ActiveConnections to 50),
+    a("link-100", AchievementCategory.Connections, AchievementTier.Platinum, R.string.ach_link_100_name, R.string.ach_link_100_desc, GamificationStat.ActiveConnections to 100),
     a("architect", AchievementCategory.Connections, AchievementTier.Silver, R.string.ach_architect_name, R.string.ach_architect_desc, GamificationStat.ActiveConnections to 5),
     a("architect-10", AchievementCategory.Connections, AchievementTier.Gold, R.string.ach_architect_10_name, R.string.ach_architect_10_desc, GamificationStat.ActiveConnections to 10),
 
     // ---------- Nota cheia, XP e níveis ----------
     a("perfect-10", AchievementCategory.Progress, AchievementTier.Gold, R.string.ach_perfect_10_name, R.string.ach_perfect_10_desc, GamificationStat.PerfectBlocks to 10),
     a("perfect-50", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_perfect_50_name, R.string.ach_perfect_50_desc, GamificationStat.PerfectBlocks to 50),
+    a("perfect-100", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_perfect_100_name, R.string.ach_perfect_100_desc, GamificationStat.PerfectBlocks to 100),
     a("xp-500", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_xp_500_name, R.string.ach_xp_500_desc, GamificationStat.TotalXp to 500),
     a("xp-1000", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_xp_1000_name, R.string.ach_xp_1000_desc, GamificationStat.TotalXp to 1000),
     a("xp-2500", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_xp_2500_name, R.string.ach_xp_2500_desc, GamificationStat.TotalXp to 2500),
@@ -166,6 +180,7 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("xp-25000", AchievementCategory.Progress, AchievementTier.Gold, R.string.ach_xp_25000_name, R.string.ach_xp_25000_desc, GamificationStat.TotalXp to 25000),
     a("xp-50000", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_xp_50000_name, R.string.ach_xp_50000_desc, GamificationStat.TotalXp to 50000),
     a("xp-100000", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_xp_100000_name, R.string.ach_xp_100000_desc, GamificationStat.TotalXp to 100000),
+    a("xp-250000", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_xp_250000_name, R.string.ach_xp_250000_desc, GamificationStat.TotalXp to 250000),
     a("level-3", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_level_3_name, R.string.ach_level_3_desc, GamificationStat.Level to 3),
     a("level-5", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_level_5_name, R.string.ach_level_5_desc, GamificationStat.Level to 5),
     a("level-7", AchievementCategory.Progress, AchievementTier.Bronze, R.string.ach_level_7_name, R.string.ach_level_7_desc, GamificationStat.Level to 7),
@@ -176,11 +191,18 @@ val ACHIEVEMENTS: List<Achievement> = listOf(
     a("level-30", AchievementCategory.Progress, AchievementTier.Gold, R.string.ach_level_30_name, R.string.ach_level_30_desc, GamificationStat.Level to 30),
     a("level-40", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_40_name, R.string.ach_level_40_desc, GamificationStat.Level to 40),
     a("level-50", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_50_name, R.string.ach_level_50_desc, GamificationStat.Level to 50),
+    a("level-60", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_60_name, R.string.ach_level_60_desc, GamificationStat.Level to 60),
+    a("level-70", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_70_name, R.string.ach_level_70_desc, GamificationStat.Level to 70),
+    a("level-84", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_84_name, R.string.ach_level_84_desc, GamificationStat.Level to 84),
+    a("level-100", AchievementCategory.Progress, AchievementTier.Platinum, R.string.ach_level_100_name, R.string.ach_level_100_desc, GamificationStat.Level to 100),
 
     // ---------- Combinações ----------
     a("balance", AchievementCategory.Special, AchievementTier.Gold, R.string.ach_balance_name, R.string.ach_balance_desc, GamificationStat.BlocksConfirmed to 100, GamificationStat.TasksDone to 50, GamificationStat.HabitTargetDays to 30),
     a("machine", AchievementCategory.Special, AchievementTier.Gold, R.string.ach_machine_name, R.string.ach_machine_desc, GamificationStat.Days100 to 10, GamificationStat.BestRoutineStreak to 14),
     a("veteran", AchievementCategory.Special, AchievementTier.Platinum, R.string.ach_veteran_name, R.string.ach_veteran_desc, GamificationStat.TotalXp to 25000, GamificationStat.Level to 30),
+    a("marathon", AchievementCategory.Special, AchievementTier.Platinum, R.string.ach_marathon_name, R.string.ach_marathon_desc, GamificationStat.Days100 to 60, GamificationStat.BestRoutineStreak to 60),
+    a("flawless", AchievementCategory.Special, AchievementTier.Platinum, R.string.ach_flawless_name, R.string.ach_flawless_desc, GamificationStat.PerfectBlocks to 100, GamificationStat.Days100 to 50),
+    a("centurion", AchievementCategory.Special, AchievementTier.Platinum, R.string.ach_centurion_name, R.string.ach_centurion_desc, GamificationStat.BlocksConfirmed to 1000, GamificationStat.TasksDone to 500),
 )
 
 /** Valor da estatística no retrato atual. */

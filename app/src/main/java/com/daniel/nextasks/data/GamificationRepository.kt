@@ -4,8 +4,10 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStore
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import java.time.LocalDate
 
 internal val Context.xpStore: DataStore<List<XpEvent>> by dataStore(
@@ -128,6 +130,18 @@ class GamificationEngine(
     private val connectionRepository: ConnectionRepository,
     private val settingsRepository: SettingsRepository,
 ) {
+    /**
+     * Fila de conquistas recém-desbloqueadas.
+     *
+     * Canal, e não `SharedFlow`: o app pode reconciliar antes de a tela começar a
+     * coletar, e um `SharedFlow` sem assinante descartaria justamente a primeira
+     * conquista. O canal guarda até alguém consumir.
+     */
+    private val celebrationChannel = Channel<String>(Channel.BUFFERED)
+
+    /** Conquistas para celebrar, na ordem em que caíram. */
+    val celebrations: Flow<String> = celebrationChannel.receiveAsFlow()
+
     /** Addon desligado = nada pontua (mesma regra de Conexões). */
     private suspend fun enabled(): Boolean = runCatching {
         settingsRepository.settings.first().isAddonEnabled(Addon.Gamification)
@@ -321,6 +335,7 @@ class GamificationEngine(
                     refKey = "achievement:${achievement.id}",
                 )
                 unlocked += achievement.id
+                celebrationChannel.trySend(achievement.id)
             }
         }
         return unlocked

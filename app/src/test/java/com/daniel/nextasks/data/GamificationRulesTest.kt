@@ -69,20 +69,28 @@ class GamificationRulesTest {
     @Test
     fun `rank exige nivel e conquistas`() {
         assertEquals(Rank.Beginner, rankFor(1, 0))
-        assertEquals(Rank.Beginner, rankFor(7, 99))
-        assertEquals(Rank.Apprentice, rankFor(8, 5))
-        assertEquals(Rank.Bronze, rankFor(16, 12))
+        assertEquals(Rank.Beginner, rankFor(9, 99))
+        assertEquals(Rank.Apprentice, rankFor(10, 8))
+        assertEquals(Rank.Bronze, rankFor(20, 18))
         // Nível de sobra, conquistas de menos: não pula a escada.
-        assertEquals(Rank.Apprentice, rankFor(99, 11))
-        assertEquals(Rank.Legendary, rankFor(84, 68))
+        assertEquals(Rank.Apprentice, rankFor(99, 17))
+        assertEquals(Rank.Legendary, rankFor(100, 80))
         assertEquals(Rank.Legendary, rankFor(200, 999))
     }
 
     @Test
     fun `proximo rank para no ultimo`() {
-        assertEquals(Rank.Apprentice, nextRank(7, 0))
-        assertEquals(Rank.Bronze, nextRank(8, 5))
-        assertNull(nextRank(84, 68))
+        assertEquals(Rank.Apprentice, nextRank(9, 0))
+        assertEquals(Rank.Bronze, nextRank(10, 8))
+        assertNull(nextRank(100, 80))
+    }
+
+    @Test
+    fun `faixas de rank sao monotonas`() {
+        Rank.entries.zipWithNext().forEach { (atual, proximo) ->
+            assertTrue(proximo.minLevel > atual.minLevel)
+            assertTrue(proximo.minAchievements > atual.minAchievements)
+        }
     }
 
     // ---------- sequências ----------

@@ -69,13 +69,13 @@ enum class Rank(
     val minAchievements: Int,
 ) {
     Beginner(R.string.rank_beginner, 1, 0),
-    Apprentice(R.string.rank_apprentice, 8, 5),
-    Bronze(R.string.rank_bronze, 16, 12),
-    Silver(R.string.rank_silver, 26, 24),
-    Gold(R.string.rank_gold, 38, 36),
-    Platinum(R.string.rank_platinum, 52, 48),
-    Diamond(R.string.rank_diamond, 66, 58),
-    Legendary(R.string.rank_legendary, 84, 68),
+    Apprentice(R.string.rank_apprentice, 10, 8),
+    Bronze(R.string.rank_bronze, 20, 18),
+    Silver(R.string.rank_silver, 34, 32),
+    Gold(R.string.rank_gold, 48, 46),
+    Platinum(R.string.rank_platinum, 64, 58),
+    Diamond(R.string.rank_diamond, 80, 70),
+    Legendary(R.string.rank_legendary, 100, 80),
 }
 
 /** Rank atual para o par (nível, conquistas desbloqueadas). */

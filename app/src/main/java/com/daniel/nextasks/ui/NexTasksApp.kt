@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,7 +62,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.Addon
+import com.daniel.nextasks.data.Achievement
 import com.daniel.nextasks.data.AppSettings
+import com.daniel.nextasks.data.achievementById
 import com.daniel.nextasks.data.isAddonEnabled
 import com.daniel.nextasks.data.BackupService
 import com.daniel.nextasks.data.CompletionRepository
@@ -85,10 +88,12 @@ import com.daniel.nextasks.ui.home.HomeScreen
 import com.daniel.nextasks.ui.tasks.TasksScreen
 import com.daniel.nextasks.ui.calendar.CalendarScreen
 import com.daniel.nextasks.ui.connections.ConnectionsScreen
+import com.daniel.nextasks.ui.gamification.AchievementCelebration
 import com.daniel.nextasks.ui.gamification.GamificationScreen
 import com.daniel.nextasks.ui.routines.RoutinesScreen
 import com.daniel.nextasks.ui.settings.SettingsScreen
 import com.daniel.nextasks.ui.theme.NexTasksTheme
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -148,6 +153,20 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
         )
     }
     val settings by settingsRepository.settings.collectAsState(initial = AppSettings())
+
+    // Fila de celebrações: o motor emite cada conquista nova e a tela mostra uma
+    // por vez, em qualquer seção do app. Se várias caírem juntas, o usuário toca
+    // para avançar.
+    val celebrationQueue = remember { mutableStateListOf<Achievement>() }
+    LaunchedEffect(Unit) {
+        gamificationEngine.celebrations.collect { id ->
+            achievementById(id)?.let { achievement ->
+                if (celebrationQueue.none { it.id == achievement.id }) {
+                    celebrationQueue.add(achievement)
+                }
+            }
+        }
+    }
 
     // Conexões órfãs (bloco ou entidade apagados) somem ao abrir o app.
     //
@@ -334,6 +353,13 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onNavigate = { destination -> current = destination },
             )
         }
+    }
+
+    celebrationQueue.firstOrNull()?.let { achievement ->
+        AchievementCelebration(
+            achievement = achievement,
+            onDismiss = { celebrationQueue.removeAt(0) },
+        )
     }
 }
 

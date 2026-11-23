@@ -27,9 +27,11 @@ lembrado de imediato, sem abrir o repositório.
   regras; divergências conscientes ficam nos logs diários.
 - Persistência: DataStore + JSON, um arquivo por entidade em `files/datastore/`. Sem Room, sem
   Hilt, sem Navigation-Compose (navegação é `enum AppDestination` + `when`).
+- Conquista desbloqueada é celebrada por um **overlay global** (canal no `GamificationEngine`
+  lido pelo `NexTasksApp`), não por tela.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **111 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **112 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar

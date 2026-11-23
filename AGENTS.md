@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.44`, `versionCode 65` |
-| Tamanho | ~89 arquivos Kotlin, ~20.300 linhas, 698 strings |
+| Versão atual | `versionName 3.45`, `versionCode 66` |
+| Tamanho | ~89 arquivos Kotlin, ~20.800 linhas, 746 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 111 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 112 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -308,8 +308,11 @@ Ignora pares já conectados e entidades concluídas.
 - **XP é ledger, não contador**: `xp_events.json` guarda cada lançamento e o nível é
   `levelFromXp(soma)`. Curva `75·(L−1)·L/2`, ranks por faixa de nível.
 - **Rank pede nível e conquistas**: `rankFor(level, achievements)` só sobe quando os dois
-  requisitos da faixa são cumpridos (ex.: Bronze = nível 16 + 12 conquistas). Farmar XP
-  sozinho não pula a escada. `rankFromLevel` não existe mais.
+  requisitos da faixa são cumpridos (Bronze = nível 20 + 18 conquistas; Lendário = 100 + 80).
+  Farmar XP sozinho não pula a escada. `rankFromLevel` não existe mais.
+- **Conquista nova é celebrada no app inteiro**: o motor emite o id num `Channel` e o
+  `NexTasksApp` enfileira; a celebração é um `Dialog` com mola, haptic e confete. Não é
+  uma tela — funciona em qualquer seção, e a fila evita perder conquistas que caem juntas.
 - **Valor negativo é lançamento de verdade** (`habit.slip` = −15). Só `0` significa
   "não pontua / desfazer"; tratar `amount <= 0` como remoção engolia a recaída.
 - Cada ação **reconcilia** o próprio lançamento (`onTaskChanged`, `onHabitChanged`…):
@@ -476,6 +479,7 @@ v3.34–3.40 conexões, zoom, testes, gamificação · v3.41 correções de regr
 conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap) ·
 v3.42 página de gamificação (anel de nível, grade de números, próxima conquista,
 histórico por dia) · v3.43 detalhe da conquista, de onde vem o XP, ordenação por
-proximidade · v3.44 ranks com requisito duplo e brasões, 78 conquistas em 7 famílias.
+proximidade · v3.44 ranks com requisito duplo e brasões, 78 conquistas em 7 famílias ·
+v3.45 ranks mais duros, 100 conquistas, animações e celebração no desbloqueio.
 
 Detalhe completo em `.workbuddy-ai/memory/`.
