@@ -3,6 +3,7 @@ package com.daniel.nextasks.ui.gamification
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,12 +62,14 @@ import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.ACHIEVEMENTS
 import com.daniel.nextasks.data.Achievement
+import com.daniel.nextasks.data.AchievementCondition
 import com.daniel.nextasks.data.AchievementRepository
 import com.daniel.nextasks.data.AchievementTier
 import com.daniel.nextasks.data.AchievementUnlock
 import com.daniel.nextasks.data.CompletionRepository
 import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.GamificationEngine
+import com.daniel.nextasks.data.GamificationStat
 import com.daniel.nextasks.data.GamificationStats
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.RoutineRepository
@@ -80,11 +85,13 @@ import com.daniel.nextasks.data.nextRank
 import com.daniel.nextasks.data.progress
 import com.daniel.nextasks.data.progressDetail
 import com.daniel.nextasks.data.rankFromLevel
+import com.daniel.nextasks.data.valueOf
 import com.daniel.nextasks.ui.components.rememberToday
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 private enum class Tab { Achievements, History, How }
 private enum class AchievementFilter { All, Unlocked, Locked }
@@ -145,6 +152,7 @@ fun GamificationScreen(
 
     var tab by rememberSaveable { mutableStateOf(Tab.Achievements) }
     var filter by rememberSaveable { mutableStateOf(AchievementFilter.All) }
+    var detail by remember { mutableStateOf<Achievement?>(null) }
 
     val unlockedIds = remember(unlocks) { unlocks.map { it.achievementId }.toSet() }
     // "Semana" aqui é os últimos 7 dias: mostra o ritmo recente, não o acumulado.
@@ -248,6 +256,7 @@ fun GamificationScreen(
                     almost = almost,
                     filter = filter,
                     onFilterChange = { filter = it },
+                    onOpenDetail = { detail = it },
                 )
 
                 Tab.History -> HistoryList(events = events, today = today)
@@ -255,6 +264,15 @@ fun GamificationScreen(
                 Tab.How -> HowToEarn()
             }
         }
+    }
+
+    detail?.let { achievement ->
+        AchievementDetailDialog(
+            achievement = achievement,
+            stats = stats,
+            unlockedOn = unlocks.firstOrNull { it.achievementId == achievement.id }?.unlockedOn,
+            onDismiss = { detail = null },
+        )
     }
 }
 
@@ -630,6 +648,7 @@ private fun AchievementsTab(
     almost: Achievement?,
     filter: AchievementFilter,
     onFilterChange: (AchievementFilter) -> Unit,
+    onOpenDetail: (Achievement) -> Unit,
 ) {
     AchievementsSummary(
         unlocked = unlockedIds.size,
@@ -665,8 +684,26 @@ private fun AchievementsTab(
 
     val visible = when (filter) {
         AchievementFilter.All -> ACHIEVEMENTS
-        AchievementFilter.Unlocked -> ACHIEVEMENTS.filter { it.id in unlockedIds }
-        AchievementFilter.Locked -> ACHIEVEMENTS.filterNot { it.id in unlockedIds }
+        // Conquistadas: as mais recentes primeiro.
+        AchievementFilter.Unlocked -> ACHIEVEMENTS
+            .filter { it.id in unlockedIds }
+            .sortedByDescending { achievement ->
+                unlocks.firstOrNull { it.achievementId == achievement.id }?.unlockedOn ?: ""
+            }
+        // Faltando: o que está mais perto de cair primeiro.
+        AchievementFilter.Locked -> ACHIEVEMENTS
+            .filterNot { it.id in unlockedIds }
+            .sortedByDescending { it.progress(stats) }
+    }
+
+    if (visible.isEmpty()) {
+        Text(
+            text = stringResource(R.string.gamification_filter_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+        )
+        return
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -677,6 +714,7 @@ private fun AchievementsTab(
                 unlockedOn = unlocks
                     .firstOrNull { it.achievementId == achievement.id }
                     ?.unlockedOn,
+                onClick = { onOpenDetail(achievement) },
             )
         }
     }
@@ -778,13 +816,17 @@ private fun AchievementRow(
     achievement: Achievement,
     stats: GamificationStats,
     unlockedOn: String?,
+    onClick: () -> Unit,
 ) {
     val unlocked = unlockedOn != null
     val color = tierColor(achievement.tier)
     val detail = if (unlocked) null else achievement.progressDetail(stats)
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
@@ -879,6 +921,150 @@ private fun AchievementRow(
     }
 }
 
+/**
+ * Detalhe da conquista: todas as condições, não só a mais atrasada.
+ *
+ * A linha da lista mostra a condição que falta e corta a descrição em duas linhas;
+ * aqui o usuário vê o que a conquista pede por inteiro e quanto já tem em cada item.
+ */
+@Composable
+private fun AchievementDetailDialog(
+    achievement: Achievement,
+    stats: GamificationStats,
+    unlockedOn: String?,
+    onDismiss: () -> Unit,
+) {
+    val unlocked = unlockedOn != null
+    val color = tierColor(achievement.tier)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Medal(tier = achievement.tier, unlocked = unlocked)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(achievement.name),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    TierTag(tier = achievement.tier)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(achievement.description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.gamification_detail_reward, achievement.tier.xp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = color,
+                )
+                Text(
+                    text = if (unlocked) {
+                        stringResource(R.string.gamification_unlocked_on, formatDay(unlockedOn))
+                    } else {
+                        stringResource(R.string.gamification_detail_locked)
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (unlocked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+
+                if (achievement.conditions.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        text = stringResource(R.string.gamification_detail_conditions).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    achievement.conditions.forEach { condition ->
+                        ConditionRow(
+                            condition = condition,
+                            stats = stats,
+                            color = color,
+                            unlocked = unlocked,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.gamification_close))
+            }
+        },
+    )
+}
+
+@Composable
+private fun ConditionRow(
+    condition: AchievementCondition,
+    stats: GamificationStats,
+    color: Color,
+    unlocked: Boolean,
+) {
+    val value = stats.valueOf(condition.stat)
+    // Conquista já desbloqueada é permanente: a condição foi cumprida no passado,
+    // mesmo que a estatística atual tenha mudado (rotina apagada, contador zerado).
+    val met = unlocked || value >= condition.target
+    val ratio = when {
+        unlocked -> 1f
+        condition.target <= 0 -> 1f
+        else -> (value.toFloat() / condition.target).coerceIn(0f, 1f)
+    }
+
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(statLabel(condition.stat)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (unlocked) {
+                    stringResource(R.string.gamification_condition_met)
+                } else {
+                    stringResource(
+                        R.string.gamification_progress_detail,
+                        value.coerceAtMost(condition.target),
+                        condition.target,
+                    )
+                },
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = if (met) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        LinearProgressIndicator(
+            progress = { ratio },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            color = if (met) MaterialTheme.colorScheme.primary else color,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
+    }
+}
+
 /** Medalha do tier: troféu tingido, apagado enquanto a conquista está bloqueada. */
 @Composable
 private fun Medal(tier: AchievementTier, unlocked: Boolean) {
@@ -956,6 +1142,8 @@ private fun HistoryList(events: List<XpEvent>, today: LocalDate) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        XpBreakdown(events = events)
+
         groups.forEach { (day, dayEvents) ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(
@@ -989,6 +1177,107 @@ private fun HistoryList(events: List<XpEvent>, today: LocalDate) {
             ) {
                 Text(stringResource(R.string.gamification_history_more))
             }
+        }
+    }
+}
+
+/**
+ * De onde vem o XP: soma por tipo de lançamento, da maior para a menor.
+ *
+ * A barra é relativa ao maior valor absoluto do conjunto — dá para comparar
+ * "conquistas" com "blocos" sem precisar de escala.
+ */
+@Composable
+private fun XpBreakdown(events: List<XpEvent>) {
+    val totals = remember(events) {
+        events.groupBy { it.kind }
+            .map { (kind, list) -> kind to list.sumOf { it.amount } }
+            .filter { it.second != 0 }
+            .sortedByDescending { abs(it.second) }
+            .take(6)
+    }
+    if (totals.isEmpty()) return
+
+    val max = totals.maxOf { abs(it.second) }.coerceAtLeast(1)
+    val total = events.sumOf { it.amount }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant,
+        ),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.gamification_history_breakdown).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(R.string.gamification_history_breakdown_total, total),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = amountColor(total),
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            totals.forEachIndexed { index, (kind, amount) ->
+                val known = XpKind.fromRaw(kind)
+                val label = if (known != null) stringResource(known.label) else kind
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(kindIcon(kind)),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = signed(amount),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = amountColor(amount),
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                LinearProgressIndicator(
+                    progress = { abs(amount).toFloat() / max },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = if (amount < 0) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+                if (index < totals.lastIndex) Spacer(Modifier.height(9.dp))
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.gamification_history_breakdown_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -1135,6 +1424,24 @@ private fun AmountChip(text: String, negative: Boolean = false) {
             color = color,
         )
     }
+}
+
+/** Rótulo de cada estatística usada como condição de conquista. */
+private fun statLabel(stat: GamificationStat): Int = when (stat) {
+    GamificationStat.BlocksConfirmed -> R.string.gamification_stat_blocks
+    GamificationStat.PerfectBlocks -> R.string.gamification_stat_perfect_blocks
+    GamificationStat.Days100 -> R.string.gamification_stat_perfect_days
+    GamificationStat.BestRoutineStreak -> R.string.gamification_stat_streak
+    GamificationStat.TasksDone -> R.string.gamification_stat_tasks
+    GamificationStat.SubtasksDone -> R.string.gamification_stat_subtasks
+    GamificationStat.ActiveConnections -> R.string.gamification_stat_connections
+    GamificationStat.GoodHabitsActive -> R.string.gamification_stat_good_habits
+    GamificationStat.BadHabitsActive -> R.string.gamification_stat_bad_habits
+    GamificationStat.HabitTargetDays -> R.string.gamification_stat_habit_targets
+    GamificationStat.RelapsesLogged -> R.string.gamification_stat_relapses
+    GamificationStat.BestCleanStreak -> R.string.gamification_stat_clean
+    GamificationStat.TotalXp -> R.string.gamification_stat_total_xp
+    GamificationStat.Level -> R.string.gamification_stat_level
 }
 
 private fun tierColor(tier: AchievementTier): Color = when (tier) {
