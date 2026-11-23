@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -641,15 +642,6 @@ private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
     val current = rankFor(level, achievements)
     val next = nextRank(level, achievements)
     val currentIndex = Rank.entries.indexOf(current)
-    val trackProgress by animateFloatAsState(
-        targetValue = if (Rank.entries.size <= 1) {
-            0f
-        } else {
-            currentIndex.toFloat() / (Rank.entries.size - 1)
-        },
-        animationSpec = tween(900, easing = FastOutSlowInEasing),
-        label = "rankTrack",
-    )
     val pulseTransition = rememberInfiniteTransition(label = "rankPulse")
     val pulse by pulseTransition.animateFloat(
         initialValue = 1f,
@@ -707,36 +699,24 @@ private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
 
-            Box(Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant),
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth(trackProgress)
-                        .height(2.dp)
-                        .background(rankColor(current).copy(alpha = 0.85f)),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Rank.entries.forEachIndexed { index, rank ->
-                        RankBadge(
-                            rank = rank,
-                            state = when {
-                                index < currentIndex -> RankState.Done
-                                index == currentIndex -> RankState.Current
-                                else -> RankState.Locked
-                            },
-                            size = if (index == currentIndex) 38.dp else 30.dp,
-                            pulse = if (index == currentIndex) pulse else 1f,
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Rank.entries.forEachIndexed { index, rank ->
+                    RankBadge(
+                        rank = rank,
+                        state = when {
+                            index < currentIndex -> RankState.Done
+                            index == currentIndex -> RankState.Current
+                            else -> RankState.Locked
+                        },
+                        size = if (index == currentIndex) 38.dp else 30.dp,
+                        pulse = if (index == currentIndex) pulse else 1f,
+                    )
+                    if (index < Rank.entries.lastIndex) {
+                        RankConnector(
+                            achieved = index < currentIndex,
+                            color = rankColor(current),
+                            delayMillis = index * 90,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -822,6 +802,43 @@ private fun RankRequirement(label: String, current: Int, target: Int, color: Col
         color = if (met) MaterialTheme.colorScheme.primary else color,
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
     )
+}
+
+/** Trecho de trilho entre dois brasões; preenche da esquerda para a direita. */
+@Composable
+private fun RankConnector(
+    achieved: Boolean,
+    color: Color,
+    delayMillis: Int,
+    modifier: Modifier = Modifier,
+) {
+    val fill = remember { Animatable(0f) }
+
+    LaunchedEffect(achieved) {
+        if (achieved) {
+            delay(delayMillis.toLong())
+            fill.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(480, easing = FastOutSlowInEasing),
+            )
+        } else {
+            fill.snapTo(0f)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .height(2.dp)
+            .padding(horizontal = 3.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fill.value)
+                .background(color.copy(alpha = 0.85f)),
+        )
+    }
 }
 
 /** Brasão hexagonal do rank, com o ícone da faixa no centro. */
