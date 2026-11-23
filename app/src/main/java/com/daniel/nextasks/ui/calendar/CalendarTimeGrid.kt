@@ -44,7 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.daniel.nextasks.ui.components.rememberClockTime
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import kotlin.math.roundToInt
@@ -52,6 +54,7 @@ import kotlin.math.roundToInt
 private val BaseHourHeight = 56.dp
 private val AxisWidth = 48.dp
 private const val HoursInDay = 24
+private const val MinutesInDay = HoursInDay * 60
 
 /** Limites do zoom por pinça, em múltiplos da altura padrão de uma hora. */
 private const val MinZoom = 0.6f
@@ -87,7 +90,7 @@ fun CalendarTimeGrid(
     val allDayEvents = remember(events, days) {
         events.filter { it.isAllDay && it.start.toLocalDate() in days }
     }
-    val now = remember { LocalTime.now() }
+    val now = rememberClockTime()
 
     Column(modifier.fillMaxSize()) {
         DayHeaders(
@@ -419,9 +422,12 @@ private fun DayColumn(
 @Composable
 private fun EventBlock(event: CalendarEvent, hourHeight: Dp, onClick: () -> Unit) {
     val startMinutes = event.start.hour * 60 + event.start.minute
-    val endMinutes = event.end.hour * 60 + event.end.minute
+    // Duração de verdade: um bloco 22:00–01:00 atravessa o dia e não pode virar
+    // um toco de 20 dp por causa da conta `fim - início` em minutos do mesmo dia.
+    val durationMinutes = Duration.between(event.start, event.end).toMinutes().toInt()
+    val visibleMinutes = (MinutesInDay - startMinutes).coerceAtLeast(0)
     val top = ((startMinutes / 60f) * hourHeight.value).dp
-    val height = (((endMinutes - startMinutes) / 60f) * hourHeight.value)
+    val height = ((durationMinutes.coerceIn(0, visibleMinutes) / 60f) * hourHeight.value)
         .dp
         .coerceAtLeast(20.dp)
     val background = event.color.accent()

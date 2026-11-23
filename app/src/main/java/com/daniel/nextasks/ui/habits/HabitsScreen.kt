@@ -60,10 +60,12 @@ import com.daniel.nextasks.data.HabitDay
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.HabitStreak
 import com.daniel.nextasks.data.habitProgress
+import com.daniel.nextasks.data.habitPeriodCount
 import com.daniel.nextasks.data.habitStreak
 import com.daniel.nextasks.data.parseIsoDate
 import com.daniel.nextasks.ui.calendar.toEventColor
 import com.daniel.nextasks.ui.components.dashedCard
+import com.daniel.nextasks.ui.components.rememberToday
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -83,7 +85,7 @@ fun HabitsScreen(
     val habits by repository.habitList.collectAsState(initial = emptyList())
     val completions by repository.completionList.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
 
     var formVisible by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -91,9 +93,16 @@ fun HabitsScreen(
     var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val editing = habits.firstOrNull { it.id == editingId }
-    val countsToday = remember(completions, today) {
-        completions.filter { it.date == today.toString() }
-            .associate { it.habitId to it.count }
+    // Um mapa por hábito, montado uma vez: antes cada cartão filtrava a lista toda.
+    val countsByHabit = remember(completions) {
+        completions
+            .groupBy { it.habitId }
+            .mapValues { (_, list) ->
+                list
+                    // Data ilegível (backup remendado) é ignorada, não derruba a lista.
+                    .mapNotNull { c -> parseIsoDate(c.date)?.let { it to c.count } }
+                    .toMap()
+            }
     }
 
     Scaffold(
@@ -161,21 +170,24 @@ fun HabitsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(habits, key = { it.id }) { habit ->
-                    val counts = remember(completions, habit.id) {
-                        completions
-                            .filter { it.habitId == habit.id }
-                            // Data ilegível (backup remendado) é ignorada, não derruba a lista.
-                            .mapNotNull { c -> parseIsoDate(c.date)?.let { it to c.count } }
-                            .toMap()
-                    }
+                    val counts = countsByHabit[habit.id].orEmpty()
                     val progress = remember(counts, habit, today) {
                         habitProgress(habit, counts, today.minusDays(83), today)
                     }
-                    val streak = remember(progress, today) { habitStreak(progress, today) }
+                    // A sequência olha o histórico inteiro; a grade do cartão fica
+                    // nas 12 semanas que cabem na tela.
+                    val streak = remember(counts, habit, today) {
+                        habitStreak(habitProgress(habit, counts, today.minusDays(1825), today), today)
+                    }
+                    val countToday = if (habit.kind == HabitKind.Good) {
+                        habitPeriodCount(habit, counts, today)
+                    } else {
+                        counts[today] ?: 0
+                    }
 
                     HabitCard(
                         habit = habit,
-                        countToday = countsToday[habit.id] ?: 0,
+                        countToday = countToday,
                         progress = progress,
                         streak = streak,
                         expanded = expandedId == habit.id,

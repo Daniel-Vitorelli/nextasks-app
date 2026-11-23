@@ -68,6 +68,41 @@ class HabitRepository(context: Context) {
         return result
     }
 
+    /**
+     * Garante **pelo menos** [minimum] marcações no dia, sem somar em cima do que já existe.
+     *
+     * Usado pelo motor de conexões: confirmar o mesmo bloco de novo, ou desmarcar e
+     * remarcar, não pode inflar a contagem. Antes o motor chamava `complete` com
+     * `increment = targetCount` a cada confirmação e a meta estourava.
+     */
+    suspend fun ensureCount(
+        habit: Habit,
+        date: LocalDate,
+        minimum: Int = habit.targetCount ?: 1,
+    ): Int {
+        var result = 0
+        val key = date.toString()
+        completions.updateData { current ->
+            val existing = current.firstOrNull { it.habitId == habit.id && it.date == key }
+            val nextCount = maxOf(existing?.count ?: 0, minimum.coerceAtLeast(1))
+            result = nextCount
+            when {
+                existing == null ->
+                    current + HabitCompletion(habitId = habit.id, date = key, count = nextCount)
+
+                existing.count == nextCount -> current
+                else -> current.map {
+                    if (it.habitId == habit.id && it.date == key) {
+                        it.copy(count = nextCount)
+                    } else {
+                        it
+                    }
+                }
+            }
+        }
+        return result
+    }
+
     /** Desfaz uma marcação do dia. */
     suspend fun undo(habitId: String, date: LocalDate) {
         val key = date.toString()

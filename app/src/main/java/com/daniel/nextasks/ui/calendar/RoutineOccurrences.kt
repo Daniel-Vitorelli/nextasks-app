@@ -9,6 +9,7 @@ import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.SuspensionMode
 import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.coversDay
+import com.daniel.nextasks.data.parseIsoDate
 import com.daniel.nextasks.data.parseIsoTime
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -113,7 +114,7 @@ fun routineOccurrences(
     // Blocos avulsos: existem só no dia deles, com ou sem vínculo com rotina.
     val daySet = days.toSet()
     for (extra in extras) {
-        val day = runCatching { LocalDate.parse(extra.date) }.getOrNull() ?: continue
+        val day = parseIsoDate(extra.date) ?: continue
         if (day !in daySet) continue
 
         val block = extra.toRoutineBlock()

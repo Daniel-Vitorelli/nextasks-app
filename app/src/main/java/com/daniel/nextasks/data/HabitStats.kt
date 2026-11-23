@@ -80,6 +80,26 @@ fun habitProgress(
 }
 
 /**
+ * Quantas marcações o hábito tem no período da data.
+ *
+ * Diário = o próprio dia; semanal = a semana inteira (domingo a sábado). É a
+ * resposta certa para "bati a meta?": a Home comparava a meta **semanal** com a
+ * contagem de um único dia, então "3× por semana" só fechava se as três
+ * marcações caíssem no mesmo dia.
+ */
+fun habitPeriodCount(
+    habit: Habit,
+    countsByDay: Map<LocalDate, Int>,
+    date: LocalDate,
+): Int = when (habit.frequency) {
+    HabitFrequency.Daily -> countsByDay[date] ?: 0
+    HabitFrequency.Weekly -> {
+        val weekStart = date.minusDays((date.dayOfWeek.value % 7).toLong())
+        (0..6).sumOf { countsByDay[weekStart.plusDays(it.toLong())] ?: 0 }
+    }
+}
+
+/**
  * Sequência de dias cumpridos. Dias fora da agenda não contam nem quebram.
  *
  * A conta é feita **sobre os dias agendados**, não sobre o calendário: um hábito

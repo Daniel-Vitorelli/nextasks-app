@@ -134,6 +134,29 @@ class GamificationStatsTest {
     }
 
     @Test
+    fun `meta de habito semanal conta a semana`() {
+        val habit = Habit(
+            id = "h1",
+            name = "Correr",
+            kind = HabitKind.Good,
+            frequency = HabitFrequency.Weekly,
+            targetCount = 3,
+            createdAt = millis(today.minusDays(20)),
+        )
+        // 2026-11-15 é domingo; 16, 17 e 18 caem na mesma semana.
+        val completions = listOf(
+            HabitCompletion("h1", "2026-11-16", 1),
+            HabitCompletion("h1", "2026-11-17", 1),
+            HabitCompletion("h1", "2026-11-18", 1),
+        )
+
+        assertEquals(
+            1,
+            stats(habits = listOf(habit), habitCompletions = completions).habitTargetDays,
+        )
+    }
+
+    @Test
     fun `dias limpos de habito ruim descontam recaidas`() {
         val habit = Habit(
             id = "h1",

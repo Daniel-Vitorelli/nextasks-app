@@ -45,7 +45,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
 
-private const val DAYS_AHEAD = 45
+/** Quantos dias à frente a agenda contínua mostra. */
+internal const val AGENDA_DAYS_AHEAD = 45
 
 /** Linha da agenda: cabeçalho de dia, evento ou dia vazio. */
 private sealed interface AgendaRow {
@@ -68,7 +69,7 @@ private fun buildAgenda(selectedDate: LocalDate, events: List<CalendarEvent>): L
     }
 
     // Depois dele, os próximos dias que tenham eventos (agenda contínua).
-    for (offset in 1..DAYS_AHEAD) {
+    for (offset in 1..AGENDA_DAYS_AHEAD) {
         val date = selectedDate.plusDays(offset.toLong())
         val dayEvents = byDay[date]?.sortedBy { it.start } ?: continue
         rows += AgendaRow.Header(date)

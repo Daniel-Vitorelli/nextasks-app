@@ -78,6 +78,7 @@ import com.daniel.nextasks.data.blockBlocker
 import com.daniel.nextasks.data.countsFor
 import com.daniel.nextasks.data.paceEstimate
 import com.daniel.nextasks.ui.calendar.toEventColor
+import com.daniel.nextasks.ui.components.rememberToday
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -133,7 +134,7 @@ fun ConnectionsScreen(
     val habits by habitRepository.habitList.collectAsState(initial = emptyList())
 
     val scope = rememberCoroutineScope()
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
     val snackbarHostState = remember { SnackbarHostState() }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }

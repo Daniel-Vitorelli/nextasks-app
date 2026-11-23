@@ -72,7 +72,9 @@ import com.daniel.nextasks.data.SettingsRepository
 import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.ThemeMode
+import com.daniel.nextasks.data.isAddonEnabled
 import com.daniel.nextasks.ui.AppDestination
+import com.daniel.nextasks.ui.components.rememberToday
 import com.daniel.nextasks.ui.theme.colors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -108,7 +110,7 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val settings by settingsRepository.settings.collectAsState(initial = AppSettings())
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
     val routines by routineRepository.routines.collectAsState(initial = emptyList())
     val tasks by taskRepository.tasks.collectAsState(initial = emptyList())
     val habits by habitRepository.habitList.collectAsState(initial = emptyList())
@@ -131,6 +133,7 @@ fun SettingsScreen(
     val exportFailed = stringResource(R.string.settings_export_failed)
     val importInvalid = stringResource(R.string.settings_import_invalid)
     val importDoneTemplate = stringResource(R.string.settings_import_done)
+    val importPartial = stringResource(R.string.settings_import_partial)
     val wipeDone = stringResource(R.string.settings_wipe_done)
     val noPicker = stringResource(R.string.settings_no_picker)
 
@@ -140,7 +143,10 @@ fun SettingsScreen(
         if (uri != null) {
             scope.launch {
                 busy = true
-                val text = runCatching { backupService.export() }.getOrNull()
+                // Serializar 12 tabelas é CPU: fora da main thread.
+                val text = withContext(Dispatchers.IO) {
+                    runCatching { backupService.export() }.getOrNull()
+                }
                 val saved = text != null && withContext(Dispatchers.IO) {
                     runCatching {
                         context.contentResolver.openOutputStream(uri)?.use { out ->
@@ -168,7 +174,9 @@ fun SettingsScreen(
                     }.getOrNull()
                 }
                 busy = false
-                val summary = text?.let { backupService.inspect(it) }
+                val summary = text?.let {
+                    withContext(Dispatchers.IO) { backupService.inspect(it) }
+                }
                 if (text == null || summary == null) {
                     snackbarHostState.showSnackbar(importInvalid)
                 } else {
@@ -391,30 +399,40 @@ fun SettingsScreen(
                         pendingRestore = null
                         scope.launch {
                             busy = true
-                            val result = runCatching { backupService.restore(json) }.getOrNull()
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) { backupService.restore(json) }
+                            }.getOrNull()
                             if (result is RestoreResult.Restored) {
                                 // O backup pode trazer conexões de blocos/entidades que
                                 // não vieram no mesmo arquivo. Lê os fluxos com `first()`
                                 // (o estado da tela ainda é o de antes da restauração).
-                                connectionRepository.prune(
-                                    blockIds = routineRepository.routines.first()
-                                        .flatMap { routine -> routine.blocks.map { it.id } }
-                                        .toSet(),
-                                    taskIds = taskRepository.tasks.first().map { it.id }.toSet(),
-                                    subtaskIds = subtaskRepository.subtasks.first()
-                                        .map { it.id }
-                                        .toSet(),
-                                    habitIds = habitRepository.habitList.first()
-                                        .map { it.id }
-                                        .toSet(),
-                                )
+                                // Addon desligado não roda a poda — mesma regra do motor.
+                                if (settings.isAddonEnabled(Addon.Connections)) {
+                                    runCatching {
+                                        connectionRepository.prune(
+                                            blockIds = routineRepository.routines.first()
+                                                .flatMap { routine -> routine.blocks.map { it.id } }
+                                                .toSet(),
+                                            taskIds = taskRepository.tasks.first()
+                                                .map { it.id }
+                                                .toSet(),
+                                            subtaskIds = subtaskRepository.subtasks.first()
+                                                .map { it.id }
+                                                .toSet(),
+                                            habitIds = habitRepository.habitList.first()
+                                                .map { it.id }
+                                                .toSet(),
+                                        )
+                                    }
+                                }
                             }
                             busy = false
                             snackbarHostState.showSnackbar(
-                                when (result) {
-                                    is RestoreResult.Restored ->
-                                        importDoneTemplate.format(result.records)
-                                    else -> importInvalid
+                                when {
+                                    result !is RestoreResult.Restored -> importInvalid
+                                    result.tables < backupService.tableCount ->
+                                        importPartial.format(result.tables)
+                                    else -> importDoneTemplate.format(result.records)
                                 },
                             )
                         }

@@ -63,6 +63,8 @@ import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.TaskSortSettings
 import com.daniel.nextasks.data.descendantIds
 import com.daniel.nextasks.ui.components.dashedCard
+import com.daniel.nextasks.ui.components.rememberToday
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.UUID
@@ -88,6 +90,8 @@ fun TasksScreen(
     /** Chamado depois de qualquer mudança, para o XP refletir o estado atual. */
     onTaskChanged: (String) -> Unit = {},
     onSubtaskChanged: (String) -> Unit = {},
+    /** Recalcula o XP depois de exclusões, quando o registro já não existe. */
+    onDataChanged: () -> Unit = {},
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -102,7 +106,10 @@ fun TasksScreen(
     var subtaskForm by remember { mutableStateOf<SubtaskForm?>(null) }
     var subtaskDeleteTarget by remember { mutableStateOf<Subtask?>(null) }
 
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
+    // Sub-tarefas por tarefa, uma vez por mudança: antes cada item da LazyColumn
+    // filtrava a lista inteira a cada frame.
+    val subtasksByTask = remember(subtasks) { subtasks.groupBy { it.taskId } }
     val pendingSubtasks = remember(subtasks) {
         subtasks.filterNot { it.done }.groupingBy { it.taskId }.eachCount()
     }
@@ -176,7 +183,7 @@ fun TasksScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(sorted, key = { it.id }) { task ->
-                    val mine = subtasks.filter { it.taskId == task.id }
+                    val mine = subtasksByTask[task.id].orEmpty()
                     TaskCard(
                         task = task,
                         subtaskDone = mine.count { it.done },
@@ -228,12 +235,18 @@ fun TasksScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val subtaskIds = subtasks.filter { it.taskId == task.id }.map { it.id }
                         scope.launch {
+                            // `first()` em vez do snapshot da tela: com a lista ainda
+                            // vazia, a poda deixaria conexões órfãs.
+                            val subtaskIds = subtaskRepository.subtasks.first()
+                                .filter { it.taskId == task.id }
+                                .map { it.id }
                             repository.delete(task.id)
                             subtaskRepository.deleteForTask(task.id)
                             // A árvore foi junto: as conexões não têm mais dono.
                             connectionRepository.clearForTask(task.id, subtaskIds)
+                            // O XP da tarefa e das sub-tarefas saiu com elas.
+                            onDataChanged()
                         }
                         deleteTarget = null
                     },
@@ -261,10 +274,16 @@ fun TasksScreen(
                 onDismiss = { detailsId = null },
                 onToggleSubtask = { sub ->
                     scope.launch {
+                        val becomingDone = !sub.done
+                        val wasTaskDone = tasks.firstOrNull { it.id == sub.taskId }?.done == true
                         val shouldBeDone = subtaskRepository.toggleDone(sub.id)
                         if (shouldBeDone != null) {
-                            repository.setDone(sub.taskId, shouldBeDone)
-                            if (shouldBeDone) onSubtaskDone(sub.id)
+                            // Pelo TaskCompletion: reabrir a sub-tarefa reabre a tarefa.
+                            taskCompletion.setDone(sub.taskId, shouldBeDone)
+                            if (becomingDone) {
+                                onSubtaskDone(sub.id)
+                                if (shouldBeDone && !wasTaskDone) onTaskDone(sub.taskId)
+                            }
                             onSubtaskChanged(sub.id)
                             onTaskChanged(sub.taskId)
                         }
@@ -286,13 +305,19 @@ fun TasksScreen(
                 TextButton(
                     onClick = {
                         subtaskDeleteTarget = null
-                        val removed = subtasks.descendantIds(sub.id) + sub.id
                         scope.launch {
+                            // `first()`: o snapshot da tela pode estar vazio.
+                            val removed = subtaskRepository.subtasks.first()
+                                .descendantIds(sub.id) + sub.id
+                            val wasTaskDone = tasks.firstOrNull { it.id == sub.taskId }?.done == true
                             val shouldBeDone = subtaskRepository.delete(sub.id)
                             if (shouldBeDone != null) {
-                                repository.setDone(sub.taskId, shouldBeDone)
+                                taskCompletion.setDone(sub.taskId, shouldBeDone)
+                                if (shouldBeDone && !wasTaskDone) onTaskDone(sub.taskId)
                             }
                             connectionRepository.clearForSubtasks(removed)
+                            // A sub-tarefa não existe mais: o XP dela sai no reconcile.
+                            onDataChanged()
                         }
                     },
                 ) {

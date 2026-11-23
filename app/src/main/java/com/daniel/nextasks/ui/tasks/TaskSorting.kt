@@ -5,6 +5,7 @@ import com.daniel.nextasks.data.Task
 import com.daniel.nextasks.data.TaskSortCriterion
 import com.daniel.nextasks.data.TaskSortField
 import com.daniel.nextasks.data.TaskSortSettings
+import com.daniel.nextasks.data.parseIsoDate
 import java.time.LocalDate
 
 /** Onde a tarefa cai na fila do dia. A ordem dos valores é a ordem de exibição. */
@@ -22,8 +23,7 @@ internal enum class TaskBucket {
     NotStarted,
 }
 
-private fun String?.toLocalDateOrNull(): LocalDate? =
-    this?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+private fun String?.toLocalDateOrNull(): LocalDate? = parseIsoDate(this)
 
 internal fun bucketOf(task: Task, today: LocalDate): TaskBucket {
     val due = task.dueDate.toLocalDateOrNull()

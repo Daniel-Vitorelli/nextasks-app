@@ -82,6 +82,7 @@
     <string name="extra_link_label">Vincular à rotina</string>
     <string name="extra_link_none">Independente</string>
     <string name="extra_deleted">Bloco excluído</string>
+    <string name="event_deleted">Evento excluído</string>
     <string name="occurrence_delete">Excluir só neste dia</string>
     <string name="occurrence_restore">Restaurar o da rotina</string>
     <string name="occurrence_deleted">Bloco removido deste dia</string>
@@ -123,6 +124,7 @@
     <string name="routine_until">Até</string>
     <string name="routine_until_date">Até %1$s</string>
     <string name="routine_pick_date">Escolher data final</string>
+    <string name="routine_end_date_required">Escolha a data final para usar \"Até\".</string>
     <string name="routine_inactive">Inativa</string>
     <string name="back">Voltar</string>
 
@@ -457,6 +459,7 @@
     <string name="settings_export_failed">Não foi possível salvar o backup</string>
     <string name="settings_import_invalid">Este arquivo não é um backup do NexTasks</string>
     <string name="settings_import_done">Backup restaurado: %1$d registros</string>
+    <string name="settings_import_partial">Restauração parcial: %1$d tabelas aplicadas</string>
     <string name="settings_import_title">Restaurar backup</string>
     <string name="settings_import_body">Substituir os dados atuais pelos do arquivo? Isto não pode ser desfeito.</string>
     <string name="settings_import_meta">Exportado em %1$s · %2$d registros</string>

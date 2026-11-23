@@ -208,13 +208,15 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onOpenDrawer = { scope.launch { drawerState.open() } },
                 onBlockConfirmed = { blockId, period ->
                     scope.launch {
-                        connectionEngine.onBlockConfirmed(blockId)
+                        // O período vem da ocorrência: confirmar o bloco de ontem não
+                        // pode fechar a meta do hábito hoje.
+                        connectionEngine.onBlockConfirmed(blockId, period)
                         gamificationEngine.reconcile()
                     }
                 },
                 onBlockUnconfirmed = { blockId, period ->
                     scope.launch {
-                        connectionEngine.onBlockUnconfirmed(blockId)
+                        connectionEngine.onBlockUnconfirmed(blockId, period)
                         gamificationEngine.reconcile()
                     }
                 },
@@ -269,6 +271,8 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onSubtaskDone = { id -> scope.launch { connectionEngine.onSubtaskDone(id) } },
                 onTaskChanged = { id -> scope.launch { gamificationEngine.onTaskChanged(id) } },
                 onSubtaskChanged = { id -> scope.launch { gamificationEngine.onSubtaskChanged(id) } },
+                // Depois de excluir, o registro não existe mais: refaz o XP do zero.
+                onDataChanged = { scope.launch { gamificationEngine.reconcile() } },
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
@@ -296,13 +300,13 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 taskSort = settings.taskSort,
                 onBlockConfirmed = { blockId, period ->
                     scope.launch {
-                        connectionEngine.onBlockConfirmed(blockId)
+                        connectionEngine.onBlockConfirmed(blockId, period)
                         gamificationEngine.reconcile()
                     }
                 },
                 onBlockUnconfirmed = { blockId, period ->
                     scope.launch {
-                        connectionEngine.onBlockUnconfirmed(blockId)
+                        connectionEngine.onBlockUnconfirmed(blockId, period)
                         gamificationEngine.reconcile()
                     }
                 },

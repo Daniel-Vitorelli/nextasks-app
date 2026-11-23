@@ -26,6 +26,10 @@ internal val Context.achievementStore: DataStore<List<AchievementUnlock>> by dat
  * É a fonte do total: o XP nunca é somado em outro lugar. `set` é idempotente por
  * `refKey` — repetir a mesma ação não duplica, mudar a nota do bloco atualiza o
  * valor, e desfazer remove o lançamento.
+ *
+ * Valor **negativo é lançamento de verdade** (recaída de hábito ruim): só `0`
+ * significa "não pontua / desfazer". Antes o filtro `amount <= 0` engolia a
+ * penalidade e a recaída não tirava XP nenhum.
  */
 class XpRepository(context: Context) {
     private val store = context.applicationContext.xpStore
@@ -37,13 +41,14 @@ class XpRepository(context: Context) {
     /**
      * Garante o lançamento de [refKey] com [amount].
      *
-     * `amount <= 0` remove o lançamento (desfez a ação ou ela não pontua).
+     * `amount == 0` remove o lançamento (desfez a ação ou ela não pontua).
+     * Negativo é valor válido — é a penalidade da recaída.
      */
     suspend fun set(kind: XpKind, amount: Int, refKey: String) {
         store.updateData { current ->
             val existing = current.firstOrNull { it.refKey == refKey }
             when {
-                amount <= 0 -> if (existing == null) current else current - existing
+                amount == 0 -> if (existing == null) current else current - existing
                 existing == null -> current + XpEvent(kind = kind.raw, refKey = refKey, amount = amount)
                 existing.amount == amount && existing.kind == kind.raw -> current
                 else -> current.map {
@@ -65,7 +70,7 @@ class XpRepository(context: Context) {
                 .filter { isDomainRef(it.refKey) }
                 .associateBy { it.refKey }
             val rebuilt = desired
-                .filter { it.amount > 0 }
+                .filter { it.amount != 0 }
                 .map { entry ->
                     previous[entry.refKey]?.copy(kind = entry.kind.raw, amount = entry.amount)
                         ?: XpEvent(kind = entry.kind.raw, refKey = entry.refKey, amount = entry.amount)

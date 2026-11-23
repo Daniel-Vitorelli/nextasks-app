@@ -70,6 +70,7 @@ import com.daniel.nextasks.data.BlockOverrideRepository
 import com.daniel.nextasks.data.BlockOverride
 import com.daniel.nextasks.data.AgendaEvent
 import com.daniel.nextasks.data.RoutineRepository
+import com.daniel.nextasks.ui.components.rememberToday
 import com.daniel.nextasks.ui.theme.NexTasksTheme
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -106,7 +107,7 @@ fun CalendarScreen(
     eventRepository: EventRepository,
     modifier: Modifier = Modifier,
 ) {
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
     val routines by routineRepository.routines.collectAsState(initial = emptyList())
     val completions by completionRepository.completions.collectAsState(initial = emptyList())
     val overrides by overrideRepository.overrides.collectAsState(initial = emptyList())
@@ -152,11 +153,14 @@ fun CalendarScreen(
     }
 
     // Eventos materializados a partir das rotinas, numa janela que cobre o mês
-    // visível e os adjacentes (o mês pode ser arrastado).
+    // visível, os adjacentes e a agenda contínua (45 dias a partir do dia escolhido).
     val events = remember(routines, selectedDate, overrides, extras, agendaEvents) {
         val firstOfMonth = selectedDate.withDayOfMonth(1)
         val from = firstOfMonth.minusMonths(1)
-        val to = firstOfMonth.plusMonths(2).plusDays(7)
+        val to = maxOf(
+            firstOfMonth.plusMonths(2).plusDays(7),
+            selectedDate.plusDays(AGENDA_DAYS_AHEAD.toLong()),
+        )
         val days = buildList {
             var day = from
             while (!day.isAfter(to)) {
@@ -182,6 +186,7 @@ fun CalendarScreen(
     val removedMessage = stringResource(R.string.occurrence_deleted)
     val undoLabel = stringResource(R.string.occurrence_undo)
     val extraDeletedMessage = stringResource(R.string.extra_deleted)
+    val eventDeletedMessage = stringResource(R.string.event_deleted)
 
     val monthExpanded = viewMode == CalendarViewMode.Month ||
         (viewMode == CalendarViewMode.Schedule && expanded)
@@ -483,13 +488,15 @@ fun CalendarScreen(
                     if (id != null) {
                         scope.launch {
                             eventRepository.delete(id)
-                            snackbarHostState.showSnackbar(extraDeletedMessage)
+                            snackbarHostState.showSnackbar(eventDeletedMessage)
                         }
                     }
                 } else if (event.isExtra) {
                     if (blockId != null) {
                         scope.launch {
                             extraRepository.delete(blockId)
+                            // O bloco avulso sumiu: a confirmação dele também sai.
+                            completionRepository.clearForBlock(blockId)
                             snackbarHostState.showSnackbar(extraDeletedMessage)
                         }
                     }

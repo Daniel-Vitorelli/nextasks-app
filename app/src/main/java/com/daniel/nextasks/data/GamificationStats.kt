@@ -71,7 +71,7 @@ data class GamificationStats(
     val activeConnections: Int,
     val goodHabitsActive: Int,
     val badHabitsActive: Int,
-    /** Dias em que um hábito bom bateu a meta. */
+    /** Dias (ou semanas, em hábito semanal) em que um hábito bom bateu a meta. */
     val habitTargetDays: Int,
     val relapsesLogged: Int,
     val bestCleanStreak: Int,
@@ -153,9 +153,25 @@ fun gamificationStats(
         if (habit.kind == HabitKind.Bad) {
             relapsesLogged += 1
             parseIsoDate(completion.date)?.let { cleanDaysByHabit[habit.id]?.remove(it.toEpochDay()) }
-        } else {
-            val target = habit.targetCount ?: 1
-            if (completion.count >= target) habitTargetDays += 1
+        }
+    }
+
+    // Meta batida: diário conta o dia, semanal conta a semana inteira — a mesma
+    // regra do `habitPeriodCount` que a Home usa.
+    habits.filter { it.kind == HabitKind.Good }.forEach { habit ->
+        val target = habit.targetCount ?: 1
+        val mine = habitCompletions.filter { it.habitId == habit.id }
+        habitTargetDays += when (habit.frequency) {
+            HabitFrequency.Daily -> mine.count { it.count >= target }
+
+            HabitFrequency.Weekly -> mine
+                .mapNotNull { completion ->
+                    parseIsoDate(completion.date)?.let { day ->
+                        day.minusDays((day.dayOfWeek.value % 7).toLong()) to completion.count
+                    }
+                }
+                .groupBy({ it.first }, { it.second })
+                .count { (_, counts) -> counts.sum() >= target }
         }
     }
 

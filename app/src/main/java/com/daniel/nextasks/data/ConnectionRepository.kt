@@ -125,7 +125,14 @@ class ConnectionEngine(
     private suspend fun enabled(): Boolean = runCatching {
         settingsRepository.settings.first().isAddonEnabled(Addon.Connections)
     }.getOrDefault(false)
-    suspend fun onBlockConfirmed(blockId: String, today: LocalDate = LocalDate.now()) {
+    /**
+     * Sentido bloco → entidade.
+     *
+     * [period] é o período da confirmação (o dia, ou o início da semana em rotina
+     * semanal). Precisa vir da tela: usar `LocalDate.now()` aqui fazia confirmar o
+     * bloco de ontem fechar a meta do hábito **hoje**.
+     */
+    suspend fun onBlockConfirmed(blockId: String, period: LocalDate = LocalDate.now()) {
         if (!enabled()) return
 
         val links = connectionRepository.connections.first().filter { it.blockId == blockId }
@@ -135,7 +142,7 @@ class ConnectionEngine(
 
         links.forEach { link ->
             val count = completions.count { link.countsFor(it) }
-            if (count >= link.requiredCount) advance(link, today)
+            if (count >= link.requiredCount) advance(link, period)
         }
     }
 
@@ -151,8 +158,15 @@ class ConnectionEngine(
     suspend fun onSubtaskDone(subtaskId: String, today: LocalDate = LocalDate.now()) =
         confirmBlocks({ it.subtaskId == subtaskId }, today)
 
-    suspend fun onHabitDone(habitId: String, today: LocalDate = LocalDate.now()) =
+    suspend fun onHabitDone(habitId: String, today: LocalDate = LocalDate.now()) {
+        // Recaída de hábito ruim não "conclui" nada: só hábito bom confirma bloco.
+        val habit = runCatching {
+            habitRepository.habitList.first().firstOrNull { it.id == habitId }
+        }.getOrNull()
+        if (habit == null || habit.kind != HabitKind.Good) return
+
         confirmBlocks({ it.habitId == habitId }, today)
+    }
 
     private suspend fun confirmBlocks(
         match: (Connection) -> Boolean,
@@ -204,6 +218,8 @@ class ConnectionEngine(
 
     /** Aplica o efeito agora, sem esperar as confirmações — ação manual da tela. */
     suspend fun applyNow(connection: Connection, today: LocalDate = LocalDate.now()) {
+        // Mesmo portão do resto do motor: addon desligado não executa nada.
+        if (!enabled()) return
         advance(connection, today)
     }
 
@@ -224,11 +240,17 @@ class ConnectionEngine(
 
         link.subtaskId?.let { id ->
             val subtask = subtaskRepository.subtasks.first().firstOrNull { it.id == id }
-            if (subtask != null && subtask.done) subtaskRepository.toggleDone(id)
+            if (subtask != null && subtask.done) {
+                // `toggleDone` reabre o nó e os ancestrais e devolve o estado que a
+                // tarefa deve assumir. Ignorar o retorno deixava a tarefa concluída
+                // com uma sub-tarefa aberta.
+                val taskDone = subtaskRepository.toggleDone(id)
+                if (taskDone == false) taskCompletion.setDone(subtask.taskId, false)
+            }
         }
     }
 
-    private suspend fun advance(link: Connection, today: LocalDate) {
+    private suspend fun advance(link: Connection, period: LocalDate) {
         link.taskId?.let { id ->
             // Pelo TaskCompletion: concluir a tarefa tem que concluir as sub-tarefas.
             taskCompletion.setDone(id, true)
@@ -243,8 +265,26 @@ class ConnectionEngine(
 
         link.habitId?.let { id ->
             val habit = habitRepository.habitList.first().firstOrNull { it.id == id } ?: return
-            // Fecha a meta do dia de uma vez, sem depender de quantas faltavam.
-            habitRepository.complete(habit, today, increment = habit.targetCount ?: 1)
+            // Garante a meta do período sem somar de novo: confirmar o mesmo bloco
+            // duas vezes (ou desmarcar e remarcar) não infla a contagem.
+            habitRepository.ensureCount(habit, habitDay(link, period))
         }
+    }
+
+    /**
+     * Dia em que o hábito recebe a marcação da conexão.
+     *
+     * Em rotina diária é o próprio período. Em semanal o período é o domingo e o
+     * bloco acontece `weekday` dias depois — a marcação vai para o dia do bloco,
+     * não para "hoje". Antes o motor usava `LocalDate.now()`, então confirmar o
+     * bloco de ontem fechava a meta do hábito hoje.
+     */
+    private suspend fun habitDay(link: Connection, period: LocalDate): LocalDate {
+        val routine = routineRepository.routines.first()
+            .firstOrNull { it.id == link.routineId }
+            ?: return period
+        if (routine.frequency != RoutineFrequency.Weekly) return period
+        val block = routine.blocks.firstOrNull { it.id == link.blockId } ?: return period
+        return period.plusDays(block.weekday.toLong())
     }
 }

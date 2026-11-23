@@ -93,7 +93,7 @@ fun HeatmapDialog(
         }
     }
 
-    val series = remember(routine, completions, today, createdOn) {
+    val series = remember(routine, completions, today, createdOn, overrides, extras, agendaEvents) {
         val days = (HEATMAP_DAYS - 1 downTo 0)
             .map { today.minusDays(it.toLong()) }
             .filter { createdOn == null || !it.isBefore(createdOn) }
@@ -164,6 +164,7 @@ fun HeatmapDialog(
 
                 HeatmapGrid(
                     columns = columns,
+                    series = series,
                     accent = accent,
                     emptyColor = muted,
                     labelColor = onSurfaceVariant,
@@ -248,6 +249,7 @@ private class HeatmapGeom(
 @Composable
 private fun HeatmapGrid(
     columns: List<List<DayProgress?>>,
+    series: List<DayProgress>,
     accent: Color,
     emptyColor: Color,
     labelColor: Color,
@@ -269,9 +271,16 @@ private fun HeatmapGrid(
                 } else {
                     val (column, row) = hit
                     val point = columns.getOrNull(column)?.getOrNull(row)
-                    val index = columns.take(column).sumOf { it.size } + row
+                    // O índice em `series` vem do próprio dia tocado: a primeira
+                    // coluna tem padding nulo para alinhar no domingo, e calcular
+                    // `column * 7 + row` deslocava o texto em até 6 dias.
+                    val index = point?.let { series.indexOf(it) }?.takeIf { it >= 0 }
                     onSelect(
-                        if (point == null) null else if (index == selected) null else index,
+                        when {
+                            index == null -> null
+                            index == selected -> null
+                            else -> index
+                        },
                     )
                 }
             }

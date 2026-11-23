@@ -59,6 +59,7 @@ import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.SuspensionMode
+import com.daniel.nextasks.data.coversDay
 import com.daniel.nextasks.ui.components.DateField
 import com.daniel.nextasks.ui.components.TimeField
 import com.daniel.nextasks.ui.components.TimePickerDialog
@@ -455,6 +456,9 @@ private fun countSuspendedBlocks(routine: Routine?, draft: AgendaEvent): Int {
     val segments = draft.segments()
     var count = 0
     for (day in draft.days()) {
+        // Mesma regra do motor de ocorrências: fora da vigência da rotina não há
+        // bloco para esconder, então a prévia não pode contar esses dias.
+        if (!routine.coversDay(day)) continue
         for (block in routine.blocks) {
             if (routine.frequency == RoutineFrequency.Weekly &&
                 day.dayOfWeek.value % 7 != block.weekday

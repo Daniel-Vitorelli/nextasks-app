@@ -71,6 +71,9 @@ fun RoutineFormDialog(
     var nameTouched by rememberSaveable { mutableStateOf(false) }
 
     val nameError = nameTouched && name.isBlank()
+    // "Até" sem data virava "Indefinida" sem aviso: `coversDay` trata endDate nulo
+    // como "nunca acaba". Melhor bloquear o salvar do que gravar outra coisa.
+    val dateMissing = duration == RoutineDuration.Until && endDate == null
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -109,7 +112,7 @@ fun RoutineFormDialog(
                     },
                     actions = {
                         TextButton(
-                            enabled = name.isNotBlank(),
+                            enabled = name.isNotBlank() && !dateMissing,
                             onClick = {
                                 val base = initial ?: Routine(name = name.trim())
                                 onSave(
@@ -200,6 +203,13 @@ fun RoutineFormDialog(
                             Text(
                                 text = endDate?.let { stringResource(R.string.routine_until_date, formatIsoDate(it)) }
                                     ?: stringResource(R.string.routine_pick_date),
+                            )
+                        }
+                        if (dateMissing) {
+                            Text(
+                                text = stringResource(R.string.routine_end_date_required),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
                             )
                         }
                     }

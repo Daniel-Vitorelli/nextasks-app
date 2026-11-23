@@ -226,4 +226,43 @@ class HabitStatsTest {
         assertEquals(0, streak.longest)
         assertFalse(progress.any { it.value == 100 })
     }
+
+    // ---------- habitPeriodCount ----------
+
+    @Test
+    fun `meta semanal soma a semana inteira`() {
+        val h = habit(frequency = HabitFrequency.Weekly, target = 3)
+        // 2026-03-08 é domingo: a semana vai de domingo a sábado.
+        val sunday = LocalDate.of(2026, 3, 8)
+        val counts = mapOf(
+            sunday.plusDays(1) to 1,
+            sunday.plusDays(2) to 1,
+            sunday.plusDays(3) to 1,
+        )
+
+        assertEquals(3, habitPeriodCount(h, counts, sunday.plusDays(3)))
+    }
+
+    @Test
+    fun `meta diaria nao soma os outros dias da semana`() {
+        val h = habit(frequency = HabitFrequency.Daily, target = 3)
+        val day = LocalDate.of(2026, 3, 9)
+        val counts = mapOf(day to 1, day.plusDays(1) to 2)
+
+        assertEquals(1, habitPeriodCount(h, counts, day))
+    }
+
+    @Test
+    fun `semana semanal comeca no domingo`() {
+        val h = habit(frequency = HabitFrequency.Weekly, target = 2)
+        val sunday = LocalDate.of(2026, 3, 8)
+        val saturday = sunday.plusDays(6)
+        val counts = mapOf(
+            // Marcação do sábado anterior não entra nesta semana.
+            sunday.minusDays(1) to 5,
+            saturday to 2,
+        )
+
+        assertEquals(2, habitPeriodCount(h, counts, saturday))
+    }
 }

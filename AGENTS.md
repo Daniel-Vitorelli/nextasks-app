@@ -25,12 +25,12 @@ Idioma do produto e das respostas: **português**.
 |---|---|
 | Linguagem | Kotlin |
 | UI | Jetpack Compose + Material 3 |
-| Persistência | DataStore Preferences/Proto? Não — **DataStore + JSON** (`JsonListSerializer`) |
+| Persistência | **DataStore + JSON** (`JsonListSerializer`), um arquivo por entidade |
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.40`, `versionCode 61` |
-| Tamanho | ~88 arquivos Kotlin, ~18.760 linhas, 596 strings |
+| Versão atual | `versionName 3.41`, `versionCode 62` |
+| Tamanho | ~89 arquivos Kotlin, ~19.050 linhas, 599 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,8 +51,8 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras) e `app/src/androidTest/` (toque de verdade,
-hoje só a pinça da grade). Rode antes de fechar qualquer versão.
+Os testes ficam em `app/src/test/` (regras, 108 casos) e `app/src/androidTest/` (toque
+de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
 
@@ -266,6 +266,11 @@ Errar isso faz o progresso contar duas vezes ou nunca.
 - **Desmarcar o bloco desfaz** o que a conexão concluiu: tarefa e sub-tarefa voltam a
   aberta quando a contagem cai abaixo da meta — a menos que outra conexão da mesma
   entidade continue satisfeita. Hábito **não** volta (a marcação é do usuário).
+- **Bloco → hábito usa o dia do bloco**, não "hoje": em rotina semanal o período é o
+  domingo e o bloco acontece `weekday` dias depois. A marcação é feita com
+  `HabitRepository.ensureCount` (garante a meta sem somar de novo), então confirmar,
+  desmarcar e remarcar não infla a contagem.
+- **Recaída de hábito ruim não confirma bloco**: `onHabitDone` só age em hábito bom.
 - **Várias entidades no mesmo bloco** avançam juntas; a tela avisa ("também alimenta")
   no cartão e no editor. Não é bloqueio: um bloco pode legitimamente alimentar duas.
 - `ConnectionStatus.kt` responde duas perguntas do cartão: por que a conexão nunca vai
@@ -295,6 +300,8 @@ Ignora pares já conectados e entidades concluídas.
 
 - **XP é ledger, não contador**: `xp_events.json` guarda cada lançamento e o nível é
   `levelFromXp(soma)`. Curva `75·(L−1)·L/2`, ranks por faixa de nível.
+- **Valor negativo é lançamento de verdade** (`habit.slip` = −15). Só `0` significa
+  "não pontua / desfazer"; tratar `amount <= 0` como remoção engolia a recaída.
 - Cada ação **reconcilia** o próprio lançamento (`onTaskChanged`, `onHabitChanged`…):
   desfazer remove, mudar a nota atualiza, repetir não duplica.
 - `reconcile()` refaz todo o XP de domínio a partir dos dados. Roda ao confirmar bloco e
@@ -415,6 +422,11 @@ O print (`screencap`) serve para **conferir** o resultado, não para medir o toq
   o bloco grava a conclusão mas **não** conclui a tarefa conectada, e a seção some da
   gaveta.
 - **Backup** não inclui preferências (`settings.json`).
+- **Restauração parcial** é avisada: se o arquivo trouxer menos tabelas que as 12, a
+  mensagem diz quantas foram aplicadas em vez de anunciar sucesso completo.
+- **Débito conhecido**: cartão de tarefa reimplementado em três telas, formatters de
+  data duplicados e seleção por cor sem rótulo para TalkBack. Não é bug de regra;
+  é refatoração pendente.
 
 ---
 
@@ -449,6 +461,8 @@ v1.x calendário e rotinas · v2.x blocos completáveis, cores, Home, tarefas ·
 v3.0–3.21 heatmap, sub-tarefas, eventos, hábitos (121 ícones), ordem das tarefas,
 cor de destaque · v3.22 ícone segue a cor · v3.23 logo do ícone maior ·
 v3.24–3.25 addons · v3.26–3.31 conexões (página, edição, filtros, sugestões, meta,
-avisos) · v3.32 addon desligado desliga comportamento · v3.33 gamificação não bloqueia nada.
+avisos) · v3.32 addon desligado desliga comportamento · v3.33 gamificação não bloqueia nada ·
+v3.34–3.40 conexões, zoom, testes, gamificação · v3.41 correções de regra (período da
+conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap).
 
 Detalhe completo em `.workbuddy-ai/memory/`.

@@ -64,6 +64,7 @@ import com.daniel.nextasks.data.HabitFrequency
 import com.daniel.nextasks.data.HabitKind
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.habitProgress
+import com.daniel.nextasks.data.habitPeriodCount
 import com.daniel.nextasks.data.habitStreak
 import com.daniel.nextasks.data.ExtraBlockRepository
 import com.daniel.nextasks.data.EventConfirmation
@@ -223,6 +224,24 @@ fun HomeScreen(
         }
     }
 
+    // Sequência sobre o histórico inteiro (limitado a 5 anos), uma vez por mudança.
+    // A janela de 60 dias fazia uma sequência de 200 dias aparecer como 60.
+    val habitStreaks = remember(todayHabits, habitCountsById, today) {
+        todayHabits.associate { habit ->
+            val counts = habitCountsById[habit.id].orEmpty()
+            val from = today.minusDays(1825)
+            habit.id to habitStreak(habitProgress(habit, counts, from, today), today).current
+        }
+    }
+
+    // Árvore de sub-tarefas das tarefas que a Home mostra, montada uma vez só.
+    // Antes era `flattenSubtaskTree` dentro da composição, a cada recomposição.
+    val subtaskTrees = remember(subtasks, pendingTasks) {
+        pendingTasks.take(HOME_TASK_LIMIT).associate { task ->
+            task.id to flattenSubtaskTree(subtasks, task.id)
+        }
+    }
+
     fun valueOf(event: CalendarEvent): String? {
         val blockId = event.blockId ?: return null
         val period = event.completionPeriodStart?.toString() ?: return null
@@ -329,18 +348,27 @@ fun HomeScreen(
                     SectionLabel(stringResource(R.string.home_habits))
                     todayHabits.forEach { habit ->
                         val habitCounts = habitCountsById[habit.id].orEmpty()
-                        val count = habitCounts[today] ?: 0
-                        val streak = habitStreak(
-                            habitProgress(habit, habitCounts, today.minusDays(59), today),
-                            today,
-                        ).current
+                        val todayCount = habitCounts[today] ?: 0
+                        // Meta semanal se mede na semana; só hábito ruim conta o dia.
+                        val count = if (habit.kind == HabitKind.Good) {
+                            habitPeriodCount(habit, habitCounts, today)
+                        } else {
+                            todayCount
+                        }
+                        val streak = habitStreaks[habit.id] ?: 0
 
-                        // Marca e, se bateu a meta, avisa as conexões.
+                        // Marca e, se bateu a meta do período, avisa as conexões.
                         suspend fun markHabit() {
                             val total = habitRepository.complete(habit, today)
                             onHabitChanged(habit.id, today)
+                            if (habit.kind != HabitKind.Good || !habit.hasGoal) return
                             val target = habit.targetCount ?: return
-                            if (habit.hasGoal && total >= target) onHabitDone(habit.id)
+                            val period = habitPeriodCount(
+                                habit,
+                                habitCounts + (today to total),
+                                today,
+                            )
+                            if (period >= target) onHabitDone(habit.id)
                         }
 
                         HomeHabitRow(
@@ -350,7 +378,7 @@ fun HomeScreen(
                             onToggle = {
                                 scope.launch {
                                     if (habit.kind == HabitKind.Bad) {
-                                        if (count > 0) {
+                                        if (todayCount > 0) {
                                             habitRepository.undo(habit.id, today)
                                             onHabitChanged(habit.id, today)
                                         } else {
@@ -406,15 +434,22 @@ fun HomeScreen(
                     onClick = onOpenTasks,
                 )
                 // Árvore simplificada: dá para marcar sem abrir o detalhe.
-                flattenSubtaskTree(subtasks, task.id).forEach { node ->
+                subtaskTrees[task.id].orEmpty().forEach { node ->
                     HomeSubtaskRow(
                         node = node,
                         onToggle = {
                             scope.launch {
+                                val becomingDone = !node.subtask.done
                                 val shouldBeDone = subtaskRepository.toggleDone(node.subtask.id)
                                 if (shouldBeDone != null) {
-                                    taskRepository.setDone(task.id, shouldBeDone)
-                                    if (shouldBeDone) onSubtaskDone(node.subtask.id)
+                                    // Pelo TaskCompletion: reabrir a sub-tarefa reabre a tarefa.
+                                    taskCompletion.setDone(task.id, shouldBeDone)
+                                    if (becomingDone) {
+                                        // A conexão da sub-tarefa reage mesmo quando a tarefa
+                                        // ainda não fechou; a da tarefa, só quando ela fecha.
+                                        onSubtaskDone(node.subtask.id)
+                                        if (shouldBeDone && !task.done) onTaskDone(task.id)
+                                    }
                                     onSubtaskChanged(node.subtask.id)
                                 }
                             }

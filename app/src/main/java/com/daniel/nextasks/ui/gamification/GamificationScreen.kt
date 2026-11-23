@@ -70,6 +70,7 @@ import com.daniel.nextasks.data.levelProgress
 import com.daniel.nextasks.data.nextRank
 import com.daniel.nextasks.data.progress
 import com.daniel.nextasks.data.rankFromLevel
+import com.daniel.nextasks.ui.components.rememberToday
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -110,7 +111,7 @@ fun GamificationScreen(
     val habitCompletions by habitRepository.completionList.collectAsState(initial = emptyList())
     val connections by connectionRepository.connections.collectAsState(initial = emptyList())
 
-    val today = remember { LocalDate.now() }
+    val today = rememberToday()
     val stats = remember(routines, completions, tasks, subtasks, habits, habitCompletions, connections, events) {
         gamificationStats(
             routines = routines,

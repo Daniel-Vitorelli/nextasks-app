@@ -119,6 +119,9 @@ class BackupService(context: Context) {
         ),
     )
 
+    /** Quantas tabelas o backup cobre — para avisar quando a restauração é parcial. */
+    val tableCount: Int get() = tables().size
+
     /** Gera o backup completo como JSON indentado. */
     suspend fun export(): String {
         val files = buildJsonObject {
