@@ -29,7 +29,7 @@ lembrado de imediato, sem abrir o repositório.
   Hilt, sem Navigation-Compose (navegação é `enum AppDestination` + `when`).
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **108 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **109 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar

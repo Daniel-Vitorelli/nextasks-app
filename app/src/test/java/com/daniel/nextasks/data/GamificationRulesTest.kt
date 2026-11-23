@@ -168,6 +168,15 @@ class GamificationRulesTest {
     }
 
     @Test
+    fun `detalhe do progresso mostra a condicao mais atrasada`() {
+        val resilience = achievementById("resilience")!!
+        // Recaída 1 de 1 (feita), sequência limpa 3 de 7 (atrasada): o detalhe é 3 de 7.
+        val s = stats().copy(relapsesLogged = 1, bestCleanStreak = 3)
+
+        assertEquals(3 to 7, resilience.progressDetail(s))
+    }
+
+    @Test
     fun `catalogo nao tem id repetido`() {
         val ids = ACHIEVEMENTS.map { it.id }
 

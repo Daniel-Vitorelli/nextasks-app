@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.41`, `versionCode 62` |
-| Tamanho | ~89 arquivos Kotlin, ~19.050 linhas, 599 strings |
+| Versão atual | `versionName 3.42`, `versionCode 63` |
+| Tamanho | ~89 arquivos Kotlin, ~19.600 linhas, 598 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 108 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 109 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -470,6 +470,8 @@ cor de destaque · v3.22 ícone segue a cor · v3.23 logo do ícone maior ·
 v3.24–3.25 addons · v3.26–3.31 conexões (página, edição, filtros, sugestões, meta,
 avisos) · v3.32 addon desligado desliga comportamento · v3.33 gamificação não bloqueia nada ·
 v3.34–3.40 conexões, zoom, testes, gamificação · v3.41 correções de regra (período da
-conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap).
+conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap) ·
+v3.42 página de gamificação (anel de nível, grade de números, próxima conquista,
+histórico por dia).
 
 Detalhe completo em `.workbuddy-ai/memory/`.

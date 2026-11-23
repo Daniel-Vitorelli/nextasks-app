@@ -155,5 +155,22 @@ fun Achievement.progress(stats: GamificationStats): Float {
     }
 }
 
+/**
+ * A condição mais atrasada, como (valor atual, alvo) — o "3 de 10" da conquista.
+ *
+ * Usa a mesma escolha de [progress]: a de menor razão valor/alvo. Condição com
+ * alvo zero conta como satisfeita e não vira detalhe.
+ */
+fun Achievement.progressDetail(stats: GamificationStats): Pair<Int, Int>? {
+    if (conditions.isEmpty()) return null
+    val behind = conditions
+        .filter { it.target > 0 }
+        .minByOrNull { condition ->
+            stats.valueOf(condition.stat).toFloat() / condition.target
+        }
+        ?: return null
+    return stats.valueOf(behind.stat) to behind.target
+}
+
 /** Conquista por id (nulo se o catálogo mudou e o desbloqueio ficou órfão). */
 fun achievementById(id: String): Achievement? = ACHIEVEMENTS.firstOrNull { it.id == id }
