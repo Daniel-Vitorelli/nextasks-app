@@ -1,7 +1,13 @@
 package com.daniel.nextasks.ui.gamification
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -72,6 +78,28 @@ fun AchievementCelebration(achievement: Achievement, onDismiss: () -> Unit) {
     // mesmo frame. Uma janela curta de carência evita esse dismiss acidental.
     var dismissible by remember { mutableStateOf(false) }
 
+    val pulseTransition = rememberInfiniteTransition(label = "celebrationPulse")
+    val haloScale by pulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "haloScale",
+    )
+
+    var xpStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(achievement.id) {
+        delay(280)
+        xpStarted = true
+    }
+    val animatedXp by animateIntAsState(
+        targetValue = if (xpStarted) achievement.tier.xp else 0,
+        animationSpec = tween(650, easing = FastOutSlowInEasing),
+        label = "celebrationXp",
+    )
+
     LaunchedEffect(achievement.id) {
         delay(450)
         dismissible = true
@@ -132,6 +160,7 @@ fun AchievementCelebration(achievement: Achievement, onDismiss: () -> Unit) {
                     .graphicsLayer {
                         scaleX = cardScale.value
                         scaleY = cardScale.value
+                        rotationZ = (1f - cardScale.value) * -14f
                     },
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
@@ -153,26 +182,37 @@ fun AchievementCelebration(achievement: Achievement, onDismiss: () -> Unit) {
 
                     Box(
                         modifier = Modifier
-                            .size(96.dp)
+                            .size(112.dp)
                             .graphicsLayer {
-                                scaleX = iconScale.value
-                                scaleY = iconScale.value
-                            },
+                                scaleX = haloScale
+                                scaleY = haloScale
+                            }
+                            .border(1.dp, color.copy(alpha = 0.28f), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(color.copy(alpha = 0.16f))
-                                .border(2.dp, color, CircleShape),
-                        )
-                        Icon(
-                            painter = painterResource(achievement.category.icon),
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(44.dp),
-                        )
+                                .size(96.dp)
+                                .graphicsLayer {
+                                    scaleX = iconScale.value
+                                    scaleY = iconScale.value
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(color.copy(alpha = 0.16f))
+                                    .border(2.dp, color, CircleShape),
+                            )
+                            Icon(
+                                painter = painterResource(achievement.category.icon),
+                                contentDescription = null,
+                                tint = color,
+                                modifier = Modifier.size(44.dp),
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(18.dp))
@@ -203,7 +243,7 @@ fun AchievementCelebration(achievement: Achievement, onDismiss: () -> Unit) {
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text(
-                            text = stringResource(R.string.celebration_reward, achievement.tier.xp),
+                            text = stringResource(R.string.celebration_reward, animatedXp),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = color,

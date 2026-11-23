@@ -1,8 +1,13 @@
 package com.daniel.nextasks.ui.gamification
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -57,6 +62,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -96,6 +102,7 @@ import com.daniel.nextasks.data.progressDetail
 import com.daniel.nextasks.data.rankFor
 import com.daniel.nextasks.data.valueOf
 import com.daniel.nextasks.ui.components.rememberToday
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -104,7 +111,6 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
-
 private enum class Tab { Achievements, History, How }
 private enum class AchievementFilter { All, Unlocked, Locked }
 
@@ -226,63 +232,73 @@ fun GamificationScreen(
                 modifier = Modifier.padding(start = 4.dp, bottom = 14.dp),
             )
 
-            LevelHero(
-                stats = stats,
-                weekXp = weekXp,
-                unlocked = unlockedIds.size,
-                totalAchievements = ACHIEVEMENTS.size,
-            )
+            Entrance(0) {
+                LevelHero(
+                    stats = stats,
+                    weekXp = weekXp,
+                    unlocked = unlockedIds.size,
+                    totalAchievements = ACHIEVEMENTS.size,
+                )
+            }
 
             Spacer(Modifier.height(12.dp))
-            RankCard(
-                level = level,
-                achievements = unlockedIds.size,
-                onOpen = { showRanks = true },
-            )
+            Entrance(70) {
+                RankCard(
+                    level = level,
+                    achievements = unlockedIds.size,
+                    onOpen = { showRanks = true },
+                )
+            }
 
             Spacer(Modifier.height(12.dp))
-            StatsGrid(stats = stats)
+            Entrance(140) {
+                StatsGrid(stats = stats)
+            }
 
             if (events.isEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                FirstStepsCard()
+                Entrance(200) { FirstStepsCard() }
             }
 
             Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TabChip(
-                    label = stringResource(R.string.gamification_tab_achievements),
-                    selected = tab == Tab.Achievements,
-                    onClick = { tab = Tab.Achievements },
-                )
-                TabChip(
-                    label = stringResource(R.string.gamification_tab_history),
-                    selected = tab == Tab.History,
-                    onClick = { tab = Tab.History },
-                )
-                TabChip(
-                    label = stringResource(R.string.gamification_tab_how),
-                    selected = tab == Tab.How,
-                    onClick = { tab = Tab.How },
-                )
+            Entrance(240) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TabChip(
+                        label = stringResource(R.string.gamification_tab_achievements),
+                        selected = tab == Tab.Achievements,
+                        onClick = { tab = Tab.Achievements },
+                    )
+                    TabChip(
+                        label = stringResource(R.string.gamification_tab_history),
+                        selected = tab == Tab.History,
+                        onClick = { tab = Tab.History },
+                    )
+                    TabChip(
+                        label = stringResource(R.string.gamification_tab_how),
+                        selected = tab == Tab.How,
+                        onClick = { tab = Tab.How },
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
 
-            when (tab) {
-                Tab.Achievements -> AchievementsTab(
-                    stats = stats,
-                    unlocks = unlocks,
-                    unlockedIds = unlockedIds,
-                    almost = almost,
-                    filter = filter,
-                    onFilterChange = { filter = it },
-                    onOpenDetail = { detail = it },
-                )
+            TabContent(tab) {
+                when (tab) {
+                    Tab.Achievements -> AchievementsTab(
+                        stats = stats,
+                        unlocks = unlocks,
+                        unlockedIds = unlockedIds,
+                        almost = almost,
+                        filter = filter,
+                        onFilterChange = { filter = it },
+                        onOpenDetail = { detail = it },
+                    )
 
-                Tab.History -> HistoryList(events = events, today = today)
+                    Tab.History -> HistoryList(events = events, today = today)
 
-                Tab.How -> HowToEarn()
+                    Tab.How -> HowToEarn()
+                }
             }
         }
     }
@@ -302,6 +318,57 @@ fun GamificationScreen(
             achievements = unlockedIds.size,
             onDismiss = { showRanks = false },
         )
+    }
+}
+
+/**
+ * Entrada escalonada: o conteúdo reserva o espaço e aparece com fade + subida.
+ *
+ * `AnimatedVisibility` tiraria o cartão do layout e a página daria um pulo; aqui
+ * só a camada visual se move.
+ */
+@Composable
+private fun Entrance(delayMillis: Int, content: @Composable () -> Unit) {
+    val progress = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        delay(delayMillis.toLong())
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(420, easing = FastOutSlowInEasing),
+        )
+    }
+
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress.value
+            translationY = (1f - progress.value) * 34.dp.toPx()
+        },
+    ) {
+        content()
+    }
+}
+
+/** Fade curto ao trocar de aba, sem recompor as duas listas ao mesmo tempo. */
+@Composable
+private fun TabContent(tab: Tab, content: @Composable () -> Unit) {
+    val progress = remember { Animatable(1f) }
+
+    LaunchedEffect(tab) {
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(280, easing = FastOutSlowInEasing),
+        )
+    }
+
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress.value
+            translationY = (1f - progress.value) * 14.dp.toPx()
+        },
+    ) {
+        content()
     }
 }
 
@@ -493,6 +560,20 @@ private fun LevelRing(level: Int, percent: Int) {
                 size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
+
+            // Conta na ponta do arco: dá um alvo móvel para o olho seguir.
+            if (animatedPercent > 0.001f) {
+                val angle = Math.toRadians(-90.0 + 360.0 * animatedPercent)
+                val radius = (size.minDimension - stroke) / 2f
+                drawCircle(
+                    color = accent,
+                    radius = stroke * 0.62f,
+                    center = Offset(
+                        x = size.width / 2f + (radius * cos(angle)).toFloat(),
+                        y = size.height / 2f + (radius * sin(angle)).toFloat(),
+                    ),
+                )
+            }
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -560,6 +641,25 @@ private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
     val current = rankFor(level, achievements)
     val next = nextRank(level, achievements)
     val currentIndex = Rank.entries.indexOf(current)
+    val trackProgress by animateFloatAsState(
+        targetValue = if (Rank.entries.size <= 1) {
+            0f
+        } else {
+            currentIndex.toFloat() / (Rank.entries.size - 1)
+        },
+        animationSpec = tween(900, easing = FastOutSlowInEasing),
+        label = "rankTrack",
+    )
+    val pulseTransition = rememberInfiniteTransition(label = "rankPulse")
+    val pulse by pulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "rankPulseValue",
+    )
 
     Surface(
         modifier = Modifier
@@ -607,29 +707,36 @@ private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
 
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Rank.entries.forEachIndexed { index, rank ->
-                    RankBadge(
-                        rank = rank,
-                        state = when {
-                            index < currentIndex -> RankState.Done
-                            index == currentIndex -> RankState.Current
-                            else -> RankState.Locked
-                        },
-                        size = if (index == currentIndex) 38.dp else 30.dp,
-                    )
-                    if (index < Rank.entries.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(2.dp)
-                                .background(
-                                    if (index < currentIndex) {
-                                        rankColor(rank).copy(alpha = 0.8f)
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    },
-                                ),
+            Box(Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth(trackProgress)
+                        .height(2.dp)
+                        .background(rankColor(current).copy(alpha = 0.85f)),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Rank.entries.forEachIndexed { index, rank ->
+                        RankBadge(
+                            rank = rank,
+                            state = when {
+                                index < currentIndex -> RankState.Done
+                                index == currentIndex -> RankState.Current
+                                else -> RankState.Locked
+                            },
+                            size = if (index == currentIndex) 38.dp else 30.dp,
+                            pulse = if (index == currentIndex) pulse else 1f,
                         )
                     }
                 }
@@ -719,7 +826,7 @@ private fun RankRequirement(label: String, current: Int, target: Int, color: Col
 
 /** Brasão hexagonal do rank, com o ícone da faixa no centro. */
 @Composable
-private fun RankBadge(rank: Rank, state: RankState, size: Dp) {
+private fun RankBadge(rank: Rank, state: RankState, size: Dp, pulse: Float = 1f) {
     val color = rankColor(rank)
     val alpha = when (state) {
         RankState.Done -> 1f
@@ -727,7 +834,15 @@ private fun RankBadge(rank: Rank, state: RankState, size: Dp) {
         RankState.Locked -> 0.32f
     }
 
-    Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .graphicsLayer {
+                scaleX = pulse
+                scaleY = pulse
+            },
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 1.5.dp.toPx()
             val radius = this.size.minDimension / 2f - stroke / 2f
@@ -918,6 +1033,7 @@ private fun StatsGrid(stats: GamificationStats) {
             )
             Spacer(Modifier.height(12.dp))
 
+            var tileIndex = 0
             tiles.chunked(4).let { rows ->
                 rows.forEachIndexed { index, row ->
                     Row(
@@ -925,7 +1041,12 @@ private fun StatsGrid(stats: GamificationStats) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         row.forEach { tile ->
-                            StatCell(tile = tile, modifier = Modifier.weight(1f))
+                            StatCell(
+                                tile = tile,
+                                index = tileIndex,
+                                modifier = Modifier.weight(1f),
+                            )
+                            tileIndex += 1
                         }
                     }
                     if (index < rows.lastIndex) {
@@ -938,7 +1059,19 @@ private fun StatsGrid(stats: GamificationStats) {
 }
 
 @Composable
-private fun StatCell(tile: StatTile, modifier: Modifier = Modifier) {
+private fun StatCell(tile: StatTile, index: Int, modifier: Modifier = Modifier) {
+    // Sobe de zero na primeira aparição, escalonado pela posição na grade.
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(120L + index * 55L)
+        started = true
+    }
+    val animatedValue by animateIntAsState(
+        targetValue = if (started) tile.value else 0,
+        animationSpec = tween(650, easing = FastOutSlowInEasing),
+        label = "statValue",
+    )
+
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             painter = painterResource(tile.icon),
@@ -948,7 +1081,7 @@ private fun StatCell(tile: StatTile, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = tile.value.toString(),
+            text = animatedValue.toString(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,

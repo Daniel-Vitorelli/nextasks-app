@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.45`, `versionCode 66` |
-| Tamanho | ~89 arquivos Kotlin, ~20.800 linhas, 746 strings |
+| Versão atual | `versionName 3.46`, `versionCode 67` |
+| Tamanho | ~89 arquivos Kotlin, ~21.000 linhas, 746 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -480,6 +480,7 @@ conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap
 v3.42 página de gamificação (anel de nível, grade de números, próxima conquista,
 histórico por dia) · v3.43 detalhe da conquista, de onde vem o XP, ordenação por
 proximidade · v3.44 ranks com requisito duplo e brasões, 78 conquistas em 7 famílias ·
-v3.45 ranks mais duros, 100 conquistas, animações e celebração no desbloqueio.
+v3.45 ranks mais duros, 100 conquistas, animações e celebração no desbloqueio ·
+v3.46 animações de entrada, trilha do rank, contagem dos números e halo na celebração.
 
 Detalhe completo em `.workbuddy-ai/memory/`.
