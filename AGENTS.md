@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.43`, `versionCode 64` |
-| Tamanho | ~89 arquivos Kotlin, ~19.900 linhas, 613 strings |
+| Versão atual | `versionName 3.44`, `versionCode 65` |
+| Tamanho | ~89 arquivos Kotlin, ~20.300 linhas, 698 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 109 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 111 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -307,6 +307,9 @@ Ignora pares já conectados e entidades concluídas.
 
 - **XP é ledger, não contador**: `xp_events.json` guarda cada lançamento e o nível é
   `levelFromXp(soma)`. Curva `75·(L−1)·L/2`, ranks por faixa de nível.
+- **Rank pede nível e conquistas**: `rankFor(level, achievements)` só sobe quando os dois
+  requisitos da faixa são cumpridos (ex.: Bronze = nível 16 + 12 conquistas). Farmar XP
+  sozinho não pula a escada. `rankFromLevel` não existe mais.
 - **Valor negativo é lançamento de verdade** (`habit.slip` = −15). Só `0` significa
   "não pontua / desfazer"; tratar `amount <= 0` como remoção engolia a recaída.
 - Cada ação **reconcilia** o próprio lançamento (`onTaskChanged`, `onHabitChanged`…):
@@ -473,6 +476,6 @@ v3.34–3.40 conexões, zoom, testes, gamificação · v3.41 correções de regr
 conexão, XP negativo, meta semanal, cascata avisando conexões, agenda, heatmap) ·
 v3.42 página de gamificação (anel de nível, grade de números, próxima conquista,
 histórico por dia) · v3.43 detalhe da conquista, de onde vem o XP, ordenação por
-proximidade.
+proximidade · v3.44 ranks com requisito duplo e brasões, 78 conquistas em 7 famílias.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.painterResource
@@ -58,10 +60,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.ACHIEVEMENTS
 import com.daniel.nextasks.data.Achievement
+import com.daniel.nextasks.data.AchievementCategory
 import com.daniel.nextasks.data.AchievementCondition
 import com.daniel.nextasks.data.AchievementRepository
 import com.daniel.nextasks.data.AchievementTier
@@ -72,6 +76,7 @@ import com.daniel.nextasks.data.GamificationEngine
 import com.daniel.nextasks.data.GamificationStat
 import com.daniel.nextasks.data.GamificationStats
 import com.daniel.nextasks.data.HabitRepository
+import com.daniel.nextasks.data.Rank
 import com.daniel.nextasks.data.RoutineRepository
 import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.TaskRepository
@@ -84,14 +89,17 @@ import com.daniel.nextasks.data.levelProgress
 import com.daniel.nextasks.data.nextRank
 import com.daniel.nextasks.data.progress
 import com.daniel.nextasks.data.progressDetail
-import com.daniel.nextasks.data.rankFromLevel
+import com.daniel.nextasks.data.rankFor
 import com.daniel.nextasks.data.valueOf
 import com.daniel.nextasks.ui.components.rememberToday
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 private enum class Tab { Achievements, History, How }
 private enum class AchievementFilter { All, Unlocked, Locked }
@@ -153,8 +161,10 @@ fun GamificationScreen(
     var tab by rememberSaveable { mutableStateOf(Tab.Achievements) }
     var filter by rememberSaveable { mutableStateOf(AchievementFilter.All) }
     var detail by remember { mutableStateOf<Achievement?>(null) }
+    var showRanks by remember { mutableStateOf(false) }
 
     val unlockedIds = remember(unlocks) { unlocks.map { it.achievementId }.toSet() }
+    val level = levelProgress(stats.totalXp).level
     // "Semana" aqui é os últimos 7 dias: mostra o ritmo recente, não o acumulado.
     val weekStart = remember(today) {
         today.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -220,6 +230,13 @@ fun GamificationScreen(
             )
 
             Spacer(Modifier.height(12.dp))
+            RankCard(
+                level = level,
+                achievements = unlockedIds.size,
+                onOpen = { showRanks = true },
+            )
+
+            Spacer(Modifier.height(12.dp))
             StatsGrid(stats = stats)
 
             if (events.isEmpty()) {
@@ -274,6 +291,14 @@ fun GamificationScreen(
             onDismiss = { detail = null },
         )
     }
+
+    if (showRanks) {
+        RankLadderDialog(
+            level = level,
+            achievements = unlockedIds.size,
+            onDismiss = { showRanks = false },
+        )
+    }
 }
 
 /**
@@ -290,8 +315,8 @@ private fun LevelHero(
     totalAchievements: Int,
 ) {
     val progress = levelProgress(stats.totalXp)
-    val rank = rankFromLevel(progress.level)
-    val next = nextRank(progress.level)
+    val rank = rankFor(progress.level, unlocked)
+    val next = nextRank(progress.level, unlocked)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -363,31 +388,30 @@ private fun LevelHero(
             Spacer(Modifier.height(8.dp))
 
             Text(
+                text = stringResource(
+                    R.string.gamification_to_next,
+                    progress.xpToNextLevel,
+                    progress.level + 1,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(2.dp))
+            Text(
                 text = if (next == null) {
                     stringResource(R.string.gamification_last_rank)
                 } else {
                     stringResource(
-                        R.string.gamification_to_next,
-                        progress.xpToNextLevel,
-                        progress.level + 1,
+                        R.string.gamification_next_rank_detail,
+                        stringResource(next.label),
+                        next.minLevel,
+                        next.minAchievements,
                     )
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            if (next != null) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(
-                        R.string.gamification_next_rank,
-                        next.minLevel - progress.level,
-                        stringResource(next.label),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             Spacer(Modifier.height(14.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -502,6 +526,281 @@ private fun RowScope.MiniStat(
             textAlign = TextAlign.Center,
         )
     }
+}
+
+private enum class RankState { Done, Current, Locked }
+
+/**
+ * Escada de ranks: brasões hexagonais ligados por um trilho.
+ *
+ * O rank passou a pedir nível **e** conquistas; a escada mostra onde você está e
+ * o que falta para o próximo. Tocar abre o quadro completo.
+ */
+@Composable
+private fun RankCard(level: Int, achievements: Int, onOpen: () -> Unit) {
+    val current = rankFor(level, achievements)
+    val next = nextRank(level, achievements)
+    val currentIndex = Rank.entries.indexOf(current)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.gamification_rank_see_all),
+                onClick = onOpen,
+            ),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant,
+        ),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.gamification_ranks_title).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = stringResource(
+                        R.string.gamification_ranks_count,
+                        currentIndex + 1,
+                        Rank.entries.size,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(2.dp))
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Rank.entries.forEachIndexed { index, rank ->
+                    RankBadge(
+                        rank = rank,
+                        state = when {
+                            index < currentIndex -> RankState.Done
+                            index == currentIndex -> RankState.Current
+                            else -> RankState.Locked
+                        },
+                        size = if (index == currentIndex) 38.dp else 30.dp,
+                    )
+                    if (index < Rank.entries.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(2.dp)
+                                .background(
+                                    if (index < currentIndex) {
+                                        rankColor(rank).copy(alpha = 0.8f)
+                                    } else {
+                                        MaterialTheme.colorScheme.outlineVariant
+                                    },
+                                ),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = stringResource(current.label),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = if (next == null) {
+                    stringResource(R.string.gamification_last_rank)
+                } else {
+                    stringResource(
+                        R.string.gamification_next_rank_detail,
+                        stringResource(next.label),
+                        next.minLevel,
+                        next.minAchievements,
+                    )
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Brasão hexagonal do rank, com o ícone da faixa no centro. */
+@Composable
+private fun RankBadge(rank: Rank, state: RankState, size: Dp) {
+    val color = rankColor(rank)
+    val alpha = when (state) {
+        RankState.Done -> 1f
+        RankState.Current -> 1f
+        RankState.Locked -> 0.32f
+    }
+
+    Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 1.5.dp.toPx()
+            val radius = this.size.minDimension / 2f - stroke / 2f
+            val path = Path()
+            for (i in 0 until 6) {
+                val angle = (PI / 3.0 * i) - PI / 2.0
+                val x = this.size.width / 2f + (radius * cos(angle)).toFloat()
+                val y = this.size.height / 2f + (radius * sin(angle)).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+
+            drawPath(
+                path = path,
+                color = color.copy(alpha = if (state == RankState.Locked) 0.05f else 0.14f),
+            )
+            drawPath(
+                path = path,
+                color = color.copy(alpha = if (state == RankState.Locked) 0.35f else 0.9f),
+                style = Stroke(stroke),
+            )
+        }
+        Icon(
+            painter = painterResource(rankIcon(rank)),
+            contentDescription = null,
+            tint = color.copy(alpha = alpha),
+            modifier = Modifier.size(size * 0.48f),
+        )
+    }
+}
+
+/** Quadro completo dos ranks, com requisito e estado de cada faixa. */
+@Composable
+private fun RankLadderDialog(level: Int, achievements: Int, onDismiss: () -> Unit) {
+    val current = rankFor(level, achievements)
+    val currentIndex = Rank.entries.indexOf(current)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.gamification_ranks_title)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Rank.entries.forEachIndexed { index, rank ->
+                    val state = when {
+                        index < currentIndex -> RankState.Done
+                        index == currentIndex -> RankState.Current
+                        else -> RankState.Locked
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (state == RankState.Current) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+                                } else {
+                                    Color.Transparent
+                                },
+                            )
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RankBadge(rank = rank, state = state, size = 34.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(rank.label),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = if (state == RankState.Locked) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.gamification_rank_requirements,
+                                    rank.minLevel,
+                                    rank.minAchievements,
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                when (state) {
+                                    RankState.Done -> R.string.gamification_rank_done
+                                    RankState.Current -> R.string.gamification_rank_current
+                                    RankState.Locked -> R.string.gamification_rank_locked
+                                },
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (state == RankState.Current) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
+                            color = if (state == RankState.Locked) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.gamification_rank_dialog_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.gamification_close))
+            }
+        },
+    )
+}
+
+private fun rankColor(rank: Rank): Color = when (rank) {
+    Rank.Beginner -> Color(0xFF888780)
+    Rank.Apprentice -> Color(0xFF639922)
+    Rank.Bronze -> Color(0xFFCD7F32)
+    Rank.Silver -> Color(0xFFB0BEC5)
+    Rank.Gold -> Color(0xFFFFC107)
+    Rank.Platinum -> Color(0xFF64B5F6)
+    Rank.Diamond -> Color(0xFF7F77DD)
+    Rank.Legendary -> Color(0xFFE24B4A)
+}
+
+private fun rankIcon(rank: Rank): Int = when (rank) {
+    Rank.Beginner -> R.drawable.ic_habit_flag
+    Rank.Apprentice -> R.drawable.ic_habit_school
+    Rank.Bronze -> R.drawable.ic_habit_emoji_events
+    Rank.Silver -> R.drawable.ic_habit_grade
+    Rank.Gold -> R.drawable.ic_habit_stars
+    Rank.Platinum -> R.drawable.ic_habit_bolt
+    Rank.Diamond -> R.drawable.ic_gamification
+    Rank.Legendary -> R.drawable.ic_flame
 }
 
 private data class StatTile(val icon: Int, val value: Int, val label: Int)
@@ -706,17 +1005,63 @@ private fun AchievementsTab(
         return
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        visible.forEach { achievement ->
-            AchievementRow(
-                achievement = achievement,
-                stats = stats,
-                unlockedOn = unlocks
-                    .firstOrNull { it.achievementId == achievement.id }
-                    ?.unlockedOn,
-                onClick = { onOpenDetail(achievement) },
-            )
+    // Seções por família: com 76 conquistas, a lista plana virava um paredão.
+    val grouped = AchievementCategory.entries.mapNotNull { category ->
+        val items = visible.filter { it.category == category }
+        if (items.isEmpty()) null else category to items
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        grouped.forEach { (category, items) ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CategoryHeader(
+                    category = category,
+                    unlocked = items.count { it.id in unlockedIds },
+                    total = items.size,
+                )
+                items.forEach { achievement ->
+                    AchievementRow(
+                        achievement = achievement,
+                        stats = stats,
+                        unlockedOn = unlocks
+                            .firstOrNull { it.achievementId == achievement.id }
+                            ?.unlockedOn,
+                        onClick = { onOpenDetail(achievement) },
+                    )
+                }
+            }
         }
+    }
+}
+
+/** Cabeçalho de família: ícone, nome e quantas já caíram. */
+@Composable
+private fun CategoryHeader(category: AchievementCategory, unlocked: Int, total: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(category.icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(category.label).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.gamification_unlocked_count, unlocked, total),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -770,7 +1115,7 @@ private fun AchievementsSummary(
                 val detail = almost.progressDetail(stats)
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Medal(tier = almost.tier, unlocked = false)
+                    Medal(tier = almost.tier, category = almost.category, unlocked = false)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -835,7 +1180,7 @@ private fun AchievementRow(
         ),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Medal(tier = achievement.tier, unlocked = unlocked)
+            Medal(tier = achievement.tier, category = achievement.category, unlocked = unlocked)
             Spacer(Modifier.width(10.dp))
 
             Column(Modifier.weight(1f)) {
@@ -941,9 +1286,16 @@ private fun AchievementDetailDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Medal(tier = achievement.tier, unlocked = unlocked)
+                Medal(tier = achievement.tier, category = achievement.category, unlocked = unlocked)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(achievement.category.label).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = color,
+                    )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = stringResource(achievement.name),
                         style = MaterialTheme.typography.titleMedium,
@@ -1065,9 +1417,9 @@ private fun ConditionRow(
     }
 }
 
-/** Medalha do tier: troféu tingido, apagado enquanto a conquista está bloqueada. */
+/** Medalha do tier: ícone da família, tingido, apagado enquanto está bloqueada. */
 @Composable
-private fun Medal(tier: AchievementTier, unlocked: Boolean) {
+private fun Medal(tier: AchievementTier, category: AchievementCategory, unlocked: Boolean) {
     val color = tierColor(tier)
     Box(
         modifier = Modifier
@@ -1082,7 +1434,7 @@ private fun Medal(tier: AchievementTier, unlocked: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_habit_emoji_events),
+            painter = painterResource(category.icon),
             contentDescription = null,
             tint = if (unlocked) color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
             modifier = Modifier.size(19.dp),

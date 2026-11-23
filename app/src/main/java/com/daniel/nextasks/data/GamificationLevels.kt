@@ -57,27 +57,38 @@ fun levelProgress(totalXp: Int): LevelProgress {
 }
 
 /**
- * Faixas de rank, derivadas do nível. `minLevel` é cumulativo: o rank é o último
- * alcançado. Curva alta de propósito — subir de rank é evento raro.
+ * Faixas de rank, derivadas do nível **e** do número de conquistas.
+ *
+ * `minLevel` e `minAchievements` são cumulativos: o rank é o último cujo par foi
+ * alcançado. A curva é alta de propósito — subir de rank é evento raro — e o
+ * segundo requisito impede que farmar XP sozinho pule a escada.
  */
-enum class Rank(@StringRes val label: Int, val minLevel: Int) {
-    Beginner(R.string.rank_beginner, 1),
-    Apprentice(R.string.rank_apprentice, 6),
-    Bronze(R.string.rank_bronze, 12),
-    Silver(R.string.rank_silver, 20),
-    Gold(R.string.rank_gold, 30),
-    Platinum(R.string.rank_platinum, 42),
-    Diamond(R.string.rank_diamond, 56),
-    Legendary(R.string.rank_legendary, 72),
+enum class Rank(
+    @StringRes val label: Int,
+    val minLevel: Int,
+    val minAchievements: Int,
+) {
+    Beginner(R.string.rank_beginner, 1, 0),
+    Apprentice(R.string.rank_apprentice, 8, 5),
+    Bronze(R.string.rank_bronze, 16, 12),
+    Silver(R.string.rank_silver, 26, 24),
+    Gold(R.string.rank_gold, 38, 36),
+    Platinum(R.string.rank_platinum, 52, 48),
+    Diamond(R.string.rank_diamond, 66, 58),
+    Legendary(R.string.rank_legendary, 84, 68),
 }
 
-fun rankFromLevel(level: Int): Rank {
+/** Rank atual para o par (nível, conquistas desbloqueadas). */
+fun rankFor(level: Int, achievements: Int): Rank {
     val l = level.coerceAtLeast(1)
-    return Rank.entries.lastOrNull { l >= it.minLevel } ?: Rank.Beginner
+    val a = achievements.coerceAtLeast(0)
+    return Rank.entries.lastOrNull { l >= it.minLevel && a >= it.minAchievements }
+        ?: Rank.Beginner
 }
 
 /** Próximo rank, ou nulo quando já está no último. */
-fun nextRank(level: Int): Rank? {
+fun nextRank(level: Int, achievements: Int): Rank? {
     val l = level.coerceAtLeast(1)
-    return Rank.entries.firstOrNull { it.minLevel > l }
+    val a = achievements.coerceAtLeast(0)
+    return Rank.entries.firstOrNull { l < it.minLevel || a < it.minAchievements }
 }

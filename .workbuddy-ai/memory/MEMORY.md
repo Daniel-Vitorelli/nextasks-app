@@ -29,7 +29,7 @@ lembrado de imediato, sem abrir o repositório.
   Hilt, sem Navigation-Compose (navegação é `enum AppDestination` + `when`).
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **109 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **111 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
@@ -41,6 +41,7 @@ lembrado de imediato, sem abrir o repositório.
 - Bloco→hábito usa o **dia do bloco** (semanal: período + `weekday`), não "hoje"; a marcação
   passa por `ensureCount` e não soma de novo.
 - **XP negativo é lançamento** (recaída −15); só `0` remove.
+- **Rank exige nível + conquistas** (`rankFor`); XP sozinho não sobe a escada.
 - Só uma rotina ativa por vez; bloco só é confirmável **depois** do horário de início.
 - Conexões funcionam nos **dois sentidos** (bloco→entidade e entidade→bloco); confirmações
   anteriores à criação não contam.

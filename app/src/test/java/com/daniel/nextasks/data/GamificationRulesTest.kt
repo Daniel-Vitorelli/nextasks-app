@@ -67,19 +67,22 @@ class GamificationRulesTest {
     // ---------- ranks ----------
 
     @Test
-    fun `rank sobe nos limites certos`() {
-        assertEquals(Rank.Beginner, rankFromLevel(1))
-        assertEquals(Rank.Beginner, rankFromLevel(5))
-        assertEquals(Rank.Apprentice, rankFromLevel(6))
-        assertEquals(Rank.Bronze, rankFromLevel(12))
-        assertEquals(Rank.Legendary, rankFromLevel(72))
-        assertEquals(Rank.Legendary, rankFromLevel(200))
+    fun `rank exige nivel e conquistas`() {
+        assertEquals(Rank.Beginner, rankFor(1, 0))
+        assertEquals(Rank.Beginner, rankFor(7, 99))
+        assertEquals(Rank.Apprentice, rankFor(8, 5))
+        assertEquals(Rank.Bronze, rankFor(16, 12))
+        // Nível de sobra, conquistas de menos: não pula a escada.
+        assertEquals(Rank.Apprentice, rankFor(99, 11))
+        assertEquals(Rank.Legendary, rankFor(84, 68))
+        assertEquals(Rank.Legendary, rankFor(200, 999))
     }
 
     @Test
     fun `proximo rank para no ultimo`() {
-        assertEquals(Rank.Apprentice, nextRank(5))
-        assertNull(nextRank(72))
+        assertEquals(Rank.Apprentice, nextRank(7, 0))
+        assertEquals(Rank.Bronze, nextRank(8, 5))
+        assertNull(nextRank(84, 68))
     }
 
     // ---------- sequências ----------
@@ -181,5 +184,18 @@ class GamificationRulesTest {
         val ids = ACHIEVEMENTS.map { it.id }
 
         assertEquals(ids.size, ids.distinct().size)
+    }
+
+    @Test
+    fun `catalogo cobre as sete familias`() {
+        assertEquals(
+            AchievementCategory.entries.toSet(),
+            ACHIEVEMENTS.map { it.category }.toSet(),
+        )
+    }
+
+    @Test
+    fun `toda conquista tem pelo menos uma condicao`() {
+        assertTrue(ACHIEVEMENTS.all { it.conditions.isNotEmpty() })
     }
 }
