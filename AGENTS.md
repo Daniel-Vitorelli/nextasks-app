@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 4.3`, `versionCode 76` |
-| Tamanho | ~105 arquivos Kotlin em `main`, ~24.120 linhas, 841 strings |
+| Versão atual | `versionName 4.4`, `versionCode 77` |
+| Tamanho | ~105 arquivos Kotlin em `main`, ~24.190 linhas, 841 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -427,6 +427,21 @@ sai do aparelho. Conversas, memória, provedores e chaves ficam em DataStore loc
   pode propor `memory.*`, sempre com confirmação.
 - O histórico enviado é cortado por tamanho (`MaxHistoryChars`) e o resumo do app
   (rotinas, blocos, tarefas, hábitos, XP) vai no prompt para economizar chamadas.
+- **JSON forçado no transporte**: o pedido leva `response_format: {"type": "json_object"}`;
+  provedor que recusa o parâmetro tem o pedido repetido sem ele (só nesse caso — erro de
+  chave/modelo tem que cair no fallback).
+- **Resposta fora do protocolo não vira ação inventada**: se o texto cita uma ferramenta
+  real sem `actions`, o app repete o pedido uma vez com `RepairInstruction`; se ainda assim
+  não vier JSON, fica só o texto.
+- **O histórico não descreve as ações propostas**: antes o app anexava
+  `[ações propostas] tool {…} → confirmed` à fala do assistente, e o modelo passou a imitar
+  esse formato em vez de mandar JSON. O resultado continua indo nas mensagens `Action`.
+- **Campos técnicos não capitalizam**: URL, modelo e chave usam teclado sem maiúscula
+  automática e sem corretor, e o repositório faz `trim` ao salvar. Ids de modelo são
+  case-sensitive — `Nvidia/...` devolve 404 na NVIDIA.
+- Modelos gratuitos testados na NVIDIA NIM (`https://integrate.api.nvidia.com/v1`):
+  `nvidia/nemotron-3.5-bolt-e4b` (rápido, ~1 s, bom no protocolo) e
+  `nvidia/nemotron-3.5-lightning-30b-a3b` (raciocina antes de responder e demora mais).
 
 ---
 
@@ -581,6 +596,9 @@ já tinham) e conserta o fechamento do seletor de ícones (chaves repetidas na g
 v4.2 Home: resumo do dia (blocos, tarefas, hábitos) com atalho para criar tarefa,
 "nada agora" em uma linha, progresso e sequência num cartão só e a sequência da rotina
 semanal finalmente contada em semanas · v4.3 hábitos voltam a aparecer na Home quando
-não há rotina ativa e hábito sem dias escolhidos passa a valer todo dia.
+não há rotina ativa e hábito sem dias escolhidos passa a valer todo dia · v4.4 assistente
+testado de ponta a ponta com a NVIDIA NIM: JSON forçado no transporte, reparo de resposta
+fora do protocolo, campos técnicos sem maiúscula automática e histórico sem o marcador que
+o modelo imitava.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

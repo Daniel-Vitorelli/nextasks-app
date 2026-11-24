@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.putJsonArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -60,12 +61,37 @@ class AiClient {
         )
     }
 
-    /** Um pedido só. Erros viram exceção para o fallback trocar de provedor. */
+    /**
+     * Um pedido só. Erros viram exceção para o fallback trocar de provedor.
+     *
+     * Pede `response_format: json_object` — é o que mantém o modelo no protocolo. Nem
+     * todo provedor aceita, então um erro que mencione o parâmetro repete sem ele; os
+     * outros erros (chave, modelo, rede) sobem para a fila de fallback.
+     */
     private fun request(provider: AiProvider, turns: List<ChatTurn>, maxTokens: Int): String {
+        return try {
+            post(provider, turns, maxTokens, jsonMode = true)
+        } catch (error: Exception) {
+            val message = error.message.orEmpty()
+            val semSuporte = message.contains("response_format", ignoreCase = true) ||
+                message.contains("response format", ignoreCase = true)
+            if (semSuporte) post(provider, turns, maxTokens, jsonMode = false) else throw error
+        }
+    }
+
+    private fun post(
+        provider: AiProvider,
+        turns: List<ChatTurn>,
+        maxTokens: Int,
+        jsonMode: Boolean,
+    ): String {
         val body = buildJsonObject {
             put("model", provider.model)
             put("temperature", 0.2)
             put("max_tokens", maxTokens)
+            if (jsonMode) {
+                putJsonObject("response_format") { put("type", "json_object") }
+            }
             putJsonArray("messages") {
                 turns.forEach { turn ->
                     addJsonObject {

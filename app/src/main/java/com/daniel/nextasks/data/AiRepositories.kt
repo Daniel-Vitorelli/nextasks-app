@@ -44,11 +44,19 @@ class AiProviderRepository(context: Context) {
     val providers: Flow<List<AiProvider>> = store.data
 
     suspend fun save(provider: AiProvider) {
+        // Espaço sobrando na URL/modelo/chave é invisível no formulário e quebra a
+        // chamada (modelo com espaço no fim dá 404 no provedor).
+        val clean = provider.copy(
+            name = provider.name.trim(),
+            baseUrl = provider.baseUrl.trim(),
+            apiKey = provider.apiKey.trim(),
+            model = provider.model.trim(),
+        )
         store.updateData { current ->
-            if (current.any { it.id == provider.id }) {
-                current.map { if (it.id == provider.id) provider else it }
+            if (current.any { it.id == clean.id }) {
+                current.map { if (it.id == clean.id) clean else it }
             } else {
-                current + provider
+                current + clean
             }
         }
     }

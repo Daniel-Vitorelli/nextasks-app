@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -399,6 +402,15 @@ private fun AiProviderEditor(
                         label = { Text(stringResource(R.string.ai_provider_url)) },
                         placeholder = { Text(stringResource(R.string.ai_provider_url_hint)) },
                         singleLine = true,
+                        // URL e modelo são técnicos: teclado sem maiúscula automática,
+                        // sem corretor e sem dica. A NVIDIA, por exemplo, recusa o modelo
+                        // "Nvidia/..." com 404 — a maiúscula que o teclado colocava sozinho
+                        // quebrava a conexão.
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Uri,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
@@ -408,6 +420,11 @@ private fun AiProviderEditor(
                         label = { Text(stringResource(R.string.ai_provider_key)) },
                         placeholder = { Text(stringResource(R.string.ai_provider_key_hint)) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Ascii,
+                        ),
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -418,6 +435,11 @@ private fun AiProviderEditor(
                         label = { Text(stringResource(R.string.ai_provider_model)) },
                         placeholder = { Text(stringResource(R.string.ai_provider_model_hint)) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Ascii,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(16.dp))

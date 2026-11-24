@@ -35,6 +35,11 @@ lembrado de imediato, sem abrir o repositório.
   da gamificação. **Hábitos não dependem da rotina**: a seção fica fora do bloco que decide
   o que mostrar de rotina/blocos, e hábito bom diário com `daysOfWeek` vazio vale todo dia
   (`Habit.happensOn`).
+- **Assistente de IA (v4.4)**: pedido com `response_format: json_object` (com fallback
+  quando o provedor recusa), reparo automático quando a resposta cita ferramenta sem
+  `actions`, e o histórico **não** descreve ações propostas (era o que ensinava o modelo
+  a imitar `[ações propostas]` em vez de mandar JSON). URL/modelo/chave sem maiúscula
+  automática. Testado de ponta a ponta com `nvidia/nemotron-3.5-bolt-e4b`.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
 - **Testes**: `./gradlew testDebugUnitTest` — **194 casos JVM** das regras puras (cascata,

@@ -134,7 +134,17 @@ class AiConversation(
         return when (val result = client.complete(providers, turns)) {
             is AiChatResult.Failure -> AiSendResult.Error(result.message)
             is AiChatResult.Ok -> {
-                val reply = parseAiReply(result.text)
+                var reply = parseAiReply(result.text)
+                // Modelo pequeno às vezes “responde” descrevendo a chamada em texto (e até
+                // diz que já fez). Uma segunda tentativa com a instrução explícita costuma
+                // resolver; se não resolver, fica o texto — nunca uma ação inventada.
+                if (reply.actions.isEmpty() && looksLikeToolCall(result.text)) {
+                    val retry = client.complete(providers, turns + ChatTurn("user", RepairInstruction))
+                    if (retry is AiChatResult.Ok) {
+                        val second = parseAiReply(retry.text)
+                        if (second.actions.isNotEmpty()) reply = second
+                    }
+                }
                 val actions = reply.actions.map { proposed ->
                     val known = toolbox.supportedTools.contains(proposed.tool)
                     AiAction(
@@ -191,18 +201,18 @@ class AiConversation(
         return turns
     }
 
-    private fun assistantContent(message: AiMessage): String = buildString {
-        append(message.text.trim())
-        if (message.actions.isNotEmpty()) {
-            if (isNotEmpty()) append("\n\n")
-            append("[ações propostas] ")
-            append(
-                message.actions.joinToString("; ") {
-                    "${it.tool} ${it.args} → ${it.status.name.lowercase()}"
-                },
-            )
-        }
-    }
+    /**
+     * O que o modelo vê das próprias falas anteriores.
+     *
+     * Só o texto: descrever as ações propostas aqui ensinava o modelo a imitar o
+     * formato ("[ações propostas] ...") no lugar de mandar JSON. O resultado das
+     * ações vai nas mensagens [AiRole.Action], que já viram turno de usuário.
+     */
+    private fun assistantContent(message: AiMessage): String = message.text.trim()
+
+    /** A resposta cita uma ferramenta real fora do JSON? Sinal de protocolo quebrado. */
+    private fun looksLikeToolCall(raw: String): Boolean =
+        AI_TOOLS.any { raw.contains(it.name) } || raw.contains("[ações propostas]")
 
     /** Retrato do app que vai no prompt (evita uma chamada só para ler o estado). */
     private suspend fun snapshot(): AiSnapshot {
@@ -237,5 +247,10 @@ class AiConversation(
     private companion object {
         const val MaxHistoryChars = 24_000
         const val TitleChars = 48
+
+        const val RepairInstruction =
+            "Formato inválido na resposta anterior. Responda de novo SOMENTE com o objeto " +
+                "JSON {\"say\": \"texto\", \"actions\": [...]}. Não escreva o nome da " +
+                "ferramenta nem JSON dentro de \"say\"; a ação vai em \"actions\"."
     }
 }
