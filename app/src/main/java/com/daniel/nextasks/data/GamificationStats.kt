@@ -112,33 +112,12 @@ fun gamificationStats(
     // ocorrências dão para cumprir — cada uma é independente. O que um imprevisto
     // suspendeu sai da exigência: o usuário não é penalizado pelo que não podia fazer.
     val active = routines.firstOrNull { it.isActive }
-    val activeCreated = active?.createdOnDate()
-    var days100 = 0
-    var bestRoutineStreak = 0
-    var currentRoutineStreak = 0
-    if (active != null && activeCreated != null && active.blocks.isNotEmpty()) {
-        val unitDays = if (active.frequency == RoutineFrequency.Weekly) 7L else 1L
-        fun unitOf(day: LocalDate): Int = (day.toEpochDay() / unitDays).toInt()
-        val createdUnit = unitOf(activeCreated)
-
-        val complete = active.completePeriodStarts(valid, suspensions)
-            .map { unitOf(it) }
-            .filter { it >= createdUnit }
-            .distinct()
-        val suspended = active.suspendedPeriodStarts(suspensions)
-            .map { unitOf(it) }
-            .filter { it >= createdUnit }
-            .distinct()
-
-        // A sequência anda em unidades **ativas**: a unidade suspensa sai do calendário
-        // da conta, então o imprevisto pausa a corrida em vez de zerá-la.
-        fun activeIndex(unit: Int): Int = unit - suspended.count { it < unit }
-
-        days100 = complete.size
-        val summary = streakSummary(complete.map { activeIndex(it) }.distinct(), activeIndex(unitOf(today)))
-        bestRoutineStreak = summary.best
-        currentRoutineStreak = summary.current
-    }
+    // Mesma conta da Home (`routineStreak`): antes cada tela fazia a sua e as duas
+    // discordavam justamente na rotina semanal, que só acontece em alguns dias.
+    val streak = active?.let { routineStreak(it, valid, suspensions, today) }
+    val days100 = streak?.completedUnits ?: 0
+    val bestRoutineStreak = streak?.longest ?: 0
+    val currentRoutineStreak = streak?.current ?: 0
 
     // Hábitos
     var habitTargetDays = 0

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -70,6 +71,7 @@ import com.daniel.nextasks.data.habitStreak
 import com.daniel.nextasks.data.ExtraBlockRepository
 import com.daniel.nextasks.data.EventConfirmation
 import com.daniel.nextasks.data.RoutineRepository
+import com.daniel.nextasks.data.RoutineUnit
 import com.daniel.nextasks.data.Task
 import com.daniel.nextasks.data.SubtaskRepository
 import com.daniel.nextasks.data.TaskCompletion
@@ -87,6 +89,7 @@ import com.daniel.nextasks.ui.calendar.routineOccurrences
 import com.daniel.nextasks.ui.components.ScoreDialog
 import com.daniel.nextasks.ui.components.dashedCard
 import com.daniel.nextasks.ui.tasks.TaskBadge
+import com.daniel.nextasks.ui.tasks.TaskFormDialog
 import com.daniel.nextasks.ui.tasks.formatShortDate
 import com.daniel.nextasks.ui.tasks.priorityColor
 import com.daniel.nextasks.ui.tasks.priorityLabel
@@ -137,6 +140,8 @@ fun HomeScreen(
     onHabitDone: (String) -> Unit = {},
     onOpenRoutines: () -> Unit,
     onOpenTasks: () -> Unit,
+    onOpenCalendar: () -> Unit = {},
+    onOpenHabits: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val routines by routineRepository.routines.collectAsState(initial = emptyList())
@@ -225,6 +230,21 @@ fun HomeScreen(
         }
     }
 
+    // Tarefas que pedem atenção hoje: prazo de hoje ou já vencido. O resumo é um
+    // retrato do dia, não a lista (a lista completa fica mais abaixo, com "ver todas").
+    val tasksDueToday = remember(tasks, today) {
+        tasks.count { task ->
+            if (task.done) return@count false
+            val due = task.dueDate?.let { parseIsoDate(it) } ?: return@count false
+            !due.isAfter(today)
+        }
+    }
+
+    // Hábito marcado = pelo menos uma marcação hoje (meta é assunto da linha do hábito).
+    val habitsMarked = remember(todayHabits, habitCountsById, today) {
+        todayHabits.count { habit -> (habitCountsById[habit.id]?.get(today) ?: 0) > 0 }
+    }
+
     // Sequência sobre o histórico inteiro (limitado a 5 anos), uma vez por mudança.
     // A janela de 60 dias fazia uma sequência de 200 dias aparecer como 60.
     val habitStreaks = remember(todayHabits, habitCountsById, today) {
@@ -265,6 +285,7 @@ fun HomeScreen(
     var scoring by remember { mutableStateOf<CalendarEvent?>(null) }
     var showChart by rememberSaveable { mutableStateOf(false) }
     var showHeatmap by rememberSaveable { mutableStateOf(false) }
+    var showTaskForm by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -274,6 +295,22 @@ fun HomeScreen(
     ) {
         Spacer(Modifier.height(8.dp))
         HomeHeader(now = now, userName = userName)
+
+        Spacer(Modifier.height(16.dp))
+
+        // O retrato do dia vem antes de tudo: três números e um atalho para criar
+        // tarefa. Cada número leva para a seção que o explica.
+        DaySummaryCard(
+            blocksDone = stats.todayDone,
+            blocksTotal = stats.todayConfirmable,
+            tasksToday = tasksDueToday,
+            habitsDone = habitsMarked,
+            habitsTotal = todayHabits.size,
+            onOpenCalendar = onOpenCalendar,
+            onOpenTasks = onOpenTasks,
+            onOpenHabits = onOpenHabits,
+            onNewTask = { showTaskForm = true },
+        )
 
         Spacer(Modifier.height(24.dp))
 
@@ -321,27 +358,16 @@ fun HomeScreen(
                         NextBlockRow(event = next)
                     }
                 } else {
-                    NothingNowCard(next = next)
+                    NothingNowCard(next = next, onClick = onOpenCalendar)
                 }
 
                 if (routine != null) {
                     Spacer(Modifier.height(24.dp))
-                    SectionHeaderAction(
-                        label = stringResource(R.string.home_progress),
-                        icon = R.drawable.ic_chart,
-                        contentDescription = stringResource(R.string.home_chart_open),
-                        onClick = { showChart = true },
+                    DayStatsCard(
+                        stats = stats,
+                        onOpenChart = { showChart = true },
+                        onOpenHeatmap = { showHeatmap = true },
                     )
-                    ProgressCard(stats = stats)
-
-                    Spacer(Modifier.height(24.dp))
-                    SectionHeaderAction(
-                        label = stringResource(R.string.home_streak),
-                        icon = R.drawable.ic_heatmap,
-                        contentDescription = stringResource(R.string.home_heatmap_open),
-                        onClick = { showHeatmap = true },
-                    )
-                    StreakCard(stats = stats)
                 }
 
                 if (todayHabits.isNotEmpty()) {
@@ -488,6 +514,17 @@ fun HomeScreen(
         )
     }
 
+    if (showTaskForm) {
+        TaskFormDialog(
+            initial = null,
+            onDismiss = { showTaskForm = false },
+            onSave = { task ->
+                scope.launch { taskRepository.save(task) }
+                showTaskForm = false
+            },
+        )
+    }
+
     scoring?.let { event ->
         val max = event.scoreMax.coerceAtLeast(2)
         val stored = valueOf(event)?.toIntOrNull() ?: 0
@@ -569,14 +606,116 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun CardBox(content: @Composable ColumnScope.() -> Unit) {
+private fun CardBox(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(18.dp), content = content)
+    }
+}
+
+/**
+ * Retrato do dia: blocos, tarefas e hábitos em três números.
+ *
+ * Veio no lugar de abrir a tela já no meio de uma lista: em um toque dá para ver
+ * quanto falta e pular direto para a seção que interessa. O botão "+ tarefa" evita
+ * a viagem até Tarefas só para criar uma.
+ */
+@Composable
+private fun DaySummaryCard(
+    blocksDone: Int,
+    blocksTotal: Int,
+    tasksToday: Int,
+    habitsDone: Int,
+    habitsTotal: Int,
+    onOpenCalendar: () -> Unit,
+    onOpenTasks: () -> Unit,
+    onOpenHabits: () -> Unit,
+    onNewTask: () -> Unit,
+) {
+    CardBox {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SummaryTile(
+                value = if (blocksTotal > 0) "$blocksDone/$blocksTotal" else "–",
+                label = stringResource(R.string.home_summary_blocks),
+                onClick = onOpenCalendar,
+                modifier = Modifier.weight(1f),
+            )
+            SummaryTile(
+                value = tasksToday.toString(),
+                label = stringResource(R.string.home_summary_tasks),
+                onClick = onOpenTasks,
+                modifier = Modifier.weight(1f),
+            )
+            SummaryTile(
+                value = if (habitsTotal > 0) "$habitsDone/$habitsTotal" else "–",
+                label = stringResource(R.string.home_summary_habits),
+                onClick = onOpenHabits,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
+        TextButton(
+            onClick = onNewTask,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 4.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_add),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.home_quick_task),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryTile(
+    value: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -800,214 +939,217 @@ private fun NextBlockRow(event: CalendarEvent) {
 }
 
 @Composable
-private fun NothingNowCard(next: CalendarEvent?) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .dashedCard(MaterialTheme.colorScheme.outline, 16.dp)
-            .padding(18.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+private fun NothingNowCard(next: CalendarEvent?, onClick: () -> Unit) {
+    // Uma linha só: quando não há nada acontecendo, a tela não pode gastar meia
+    // dobra de rolagem dizendo isso.
+    CardBox {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(
                 painter = painterResource(R.drawable.ic_schedule),
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = stringResource(R.string.home_nothing_now),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.home_nothing_now_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(12.dp))
-        if (next != null) {
-            NextBlockRow(event = next)
-        } else {
-            Text(
-                text = stringResource(R.string.home_no_more_today),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/**
- * Cabeçalho de seção com um atalho à direita.
- *
- * Usado para abrir o gráfico e o mapa de calor, que não cabem em pé e por isso
- * abrem em tela cheia na horizontal.
- */
-@Composable
-private fun SectionHeaderAction(
-    label: String,
-    @DrawableRes icon: Int,
-    contentDescription: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.padding(bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onClick, modifier = Modifier.size(28.dp)) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = contentDescription,
-                modifier = Modifier.size(17.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProgressCard(stats: RoutineStats) {
-    CardBox {
-        if (stats.todayConfirmable == 0) {
-            Text(
-                text = stringResource(R.string.home_progress_none),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@CardBox
-        }
-
-        val percent = stats.todayPercent ?: 0
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = "$percent",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = "%",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 6.dp, start = 2.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = stringResource(
-                    R.string.home_progress_count,
-                    stats.todayDone,
-                    stats.todayConfirmable,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth((percent / 100f).coerceIn(0f, 1f))
-                    .fillMaxHeight()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            )
-        }
-    }
-}
-
-@Composable
-private fun StreakCard(stats: RoutineStats) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-
-    CardBox {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_flame),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = if (stats.currentStreak > 0) {
-                            Color(0xFFF97316)
-                        } else {
-                            muted
-                        },
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.home_streak_current),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = muted,
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = pluralStringResource(
-                        R.plurals.home_days,
-                        stats.currentStreak,
-                        stats.currentStreak,
-                    ),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (stats.currentStreak > 0) {
-                        MaterialTheme.colorScheme.onSurface
+                    text = stringResource(R.string.home_nothing_now),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = if (next == null) {
+                        stringResource(R.string.home_no_more_today)
                     } else {
-                        muted
+                        stringResource(
+                            R.string.home_next_at,
+                            next.title,
+                            next.start.toLocalTime().hourMinute(),
+                        )
                     },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
 
-            Box(
-                Modifier
-                    .width(1.dp)
-                    .height(40.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
-            )
+@Composable
+private fun DayStatsCard(
+    stats: RoutineStats,
+    onOpenChart: () -> Unit,
+    onOpenHeatmap: () -> Unit,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val fire = stats.currentStreak > 0
 
-            Column(Modifier.padding(start = 18.dp)) {
+    CardBox {
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.home_streak_record),
+                    text = stringResource(R.string.home_progress),
                     style = MaterialTheme.typography.labelMedium,
                     color = muted,
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.home_days,
-                        stats.longestStreak,
-                        stats.longestStreak,
-                    ),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                if (stats.todayConfirmable == 0) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.home_progress_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted,
+                    )
+                } else {
+                    val percent = stats.todayPercent ?: 0
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "$percent",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = "%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 6.dp, start = 2.dp),
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = stringResource(
+                                R.string.home_progress_count,
+                                stats.todayDone,
+                                stats.todayConfirmable,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth((percent / 100f).coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
+                }
+            }
+
+            IconButton(onClick = onOpenChart, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chart),
+                    contentDescription = stringResource(R.string.home_chart_open),
+                    modifier = Modifier.size(18.dp),
+                    tint = muted,
                 )
             }
         }
 
-        if (stats.currentStreak == 0) {
-            Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                painter = painterResource(R.drawable.ic_flame),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = if (fire) Color(0xFFF97316) else muted,
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.home_streak),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = muted,
+                )
+                if (stats.longestStreak > 0) {
+                    Text(
+                        text = stringResource(
+                            R.string.home_streak_best,
+                            pluralStringResource(
+                                if (stats.streakUnit == RoutineUnit.Week) {
+                                    R.plurals.home_weeks
+                                } else {
+                                    R.plurals.home_days
+                                },
+                                stats.longestStreak,
+                                stats.longestStreak,
+                            ),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             Text(
-                text = stringResource(R.string.home_streak_none),
+                text = pluralStringResource(
+                    if (stats.streakUnit == RoutineUnit.Week) {
+                        R.plurals.home_weeks
+                    } else {
+                        R.plurals.home_days
+                    },
+                    stats.currentStreak,
+                    stats.currentStreak,
+                ),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (fire) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    muted
+                },
+            )
+            IconButton(onClick = onOpenHeatmap, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_heatmap),
+                    contentDescription = stringResource(R.string.home_heatmap_open),
+                    modifier = Modifier.size(18.dp),
+                    tint = muted,
+                )
+            }
+        }
+
+        // Sequência vazia ganha a linha inteira: no espaço ao lado do número a
+        // mensagem sempre saía cortada ("Nenhuma semana completa a…").
+        if (stats.longestStreak == 0) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(
+                    if (stats.streakUnit == RoutineUnit.Week) {
+                        R.string.home_streak_none_week
+                    } else {
+                        R.string.home_streak_none
+                    },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = muted,
             )

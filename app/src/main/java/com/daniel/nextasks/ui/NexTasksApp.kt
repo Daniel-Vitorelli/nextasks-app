@@ -673,6 +673,8 @@ private fun SectionContent(
             onHabitChanged = onHabitChanged,
             onOpenRoutines = { onNavigate(AppDestination.Routines) },
             onOpenTasks = { onNavigate(AppDestination.Tasks) },
+            onOpenCalendar = { onNavigate(AppDestination.Calendar) },
+            onOpenHabits = { onNavigate(AppDestination.Habits) },
             modifier = modifier,
         )
 

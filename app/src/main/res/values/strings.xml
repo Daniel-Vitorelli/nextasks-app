@@ -179,6 +179,11 @@
     <!-- Home -->
     <string name="home_eyebrow">Seu dia</string>
     <string name="home_now">Agora</string>
+    <string name="home_summary_blocks">blocos</string>
+    <string name="home_summary_tasks">para hoje</string>
+    <string name="home_summary_habits">hábitos</string>
+    <string name="home_quick_task">Nova tarefa</string>
+    <string name="home_next_at">%1$s às %2$s</string>
     <string name="home_events">Eventos de hoje</string>
     <string name="home_event_suspended">rotina suspensa</string>
     <string name="home_event_suspended_hours">rotina suspensa no horário</string>
@@ -211,7 +216,9 @@
     <string name="home_tasks">Tarefas</string>
     <string name="home_tasks_all">Ver todas</string>
     <string name="home_streak_record">Recorde</string>
+    <string name="home_streak_best">Recorde: %1$s</string>
     <string name="home_streak_none">Nenhum dia completo ainda</string>
+    <string name="home_streak_none_week">Nenhuma semana completa ainda</string>
     <string name="home_confirm">Concluir</string>
     <string name="home_done">Concluído</string>
     <string name="home_undo">Desfazer</string>
@@ -228,6 +235,11 @@
     <plurals name="home_days">
         <item quantity="one">%1$d dia</item>
         <item quantity="other">%1$d dias</item>
+    </plurals>
+
+    <plurals name="home_weeks">
+        <item quantity="one">%1$d semana</item>
+        <item quantity="other">%1$d semanas</item>
     </plurals>
 
     <!-- Tarefas -->

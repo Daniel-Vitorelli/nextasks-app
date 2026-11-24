@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 4.1`, `versionCode 74` |
-| Tamanho | ~105 arquivos Kotlin em `main`, ~23.970 linhas, 833 strings |
+| Versão atual | `versionName 4.2`, `versionCode 75` |
+| Tamanho | ~105 arquivos Kotlin em `main`, ~24.110 linhas, 840 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 187 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 190 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -282,6 +282,12 @@ diária, a semana (domingo) na semanal. A unidade só fecha quando **todas** as 
 dela foram confirmadas — é daí que saem o 100% e o XP de `routine:dayFull`. Errar um dos
 dois lados faz o progresso contar duas vezes ou nunca.
 
+**A sequência também anda em unidades** (`routineStreak`): dias na diária, semanas na
+semanal. Contar dias corridos zerava a rotina semanal nos dias em que ela não acontece —
+quem treina seg/qua/sex ficava em 0 ou 1 para sempre. A conta é uma só, usada pela Home
+(`routineStats`) e pela gamificação (`GamificationStats`); a unidade suspensa sai do
+calendário da conta, então o imprevisto pausa em vez de quebrar.
+
 ### 7.2 Conexões — motor nos dois sentidos
 
 - **Bloco → entidade**: confirmar o bloco conta para a conexão; ao atingir
@@ -384,7 +390,8 @@ Suspender é **esconder a ocorrência**, não marcá-la como perdida. A conta mo
   (`RoutinePeriods.completePeriodStarts`), então o dia/semana fecha com o que dava para
   fazer; unidade **toda** suspensa não fecha (não há prêmio por não fazer nada) — a não
   ser que o usuário já tivesse confirmado tudo antes do imprevisto, porque aí o dia foi
-  cumprido e a suspensão não pode apagar o feito (`dueBlocksConfirmed`);
+  cumprido e a suspensão não pode apagar o feito (a própria `completePeriodStarts`
+  confirma a unidade inteira nesse caso);
 - sequência (Home e gamificação): a unidade suspensa **pausa** a corrida em vez de
   zerá-la — não soma nem quebra.
 
@@ -565,6 +572,9 @@ v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário · v3.
 avulso também suspenso por evento/imprevisto · v4.0 assistente de IA: chat com sessões,
 memória editável, provedores em fila de fallback e agente que executa qualquer ação do
 app depois da confirmação · v4.1 duplicar hábito e bloco de tempo (tarefas e rotinas
-já tinham) e conserta o fechamento do seletor de ícones (chaves repetidas na grade).
+já tinham) e conserta o fechamento do seletor de ícones (chaves repetidas na grade) ·
+v4.2 Home: resumo do dia (blocos, tarefas, hábitos) com atalho para criar tarefa,
+"nada agora" em uma linha, progresso e sequência num cartão só e a sequência da rotina
+semanal finalmente contada em semanas.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

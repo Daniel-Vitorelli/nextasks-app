@@ -84,24 +84,6 @@ fun Routine.completePeriodStarts(
 }
 
 /**
- * Os blocos previstos para o dia estão todos confirmados?
- *
- * Serve para o caso em que o imprevisto chega **depois** de o dia ter sido cumprido:
- * a suspensão não pode apagar o que já foi feito, então o dia continua valendo.
- */
-fun Routine.dueBlocksConfirmed(day: LocalDate, completions: List<Completion>): Boolean {
-    val due = blocksDueOn(day)
-    if (due.isEmpty()) return false
-    return due.all { block ->
-        completions.any { completion ->
-            completion.blockId == block.id &&
-                completion.periodStart == day.toString() &&
-                completionCounts(block.confirmation, completion.value)
-        }
-    }
-}
-
-/**
  * Os blocos que a rotina prevê para este dia, ignorando suspensão.
  *
  * Diferente de [occurrencesIn], que trabalha na unidade (dia ou semana) e já tira o
@@ -143,4 +125,73 @@ fun Routine.suspendedPeriodStarts(suspensions: Suspensions): List<LocalDate> {
         .filter { unit -> occurrencesIn(unit).isNotEmpty() && occurrencesIn(unit, suspensions).isEmpty() }
         .sorted()
         .toList()
+}
+
+
+/** Unidade em que a sequência da rotina anda: o dia na diária, a semana na semanal. */
+enum class RoutineUnit { Day, Week }
+
+/**
+ * Sequência da rotina em **unidades completas** (`RoutinePeriods.completePeriodStarts`).
+ *
+ * A unidade suspensa por imprevisto **pausa** a corrida: sai do calendário da conta,
+ * então não soma nem quebra. É a mesma sequência que a gamificação usa — antes a Home
+ * contava dias corridos e uma rotina semanal (que só acontece em alguns dias) ficava
+ * eternamente em 0 ou 1.
+ */
+data class RoutineStreak(
+    val current: Int = 0,
+    val longest: Int = 0,
+    val unit: RoutineUnit = RoutineUnit.Day,
+    /** Quantas unidades fecharam (100%) — o "dias 100%" da gamificação. */
+    val completedUnits: Int = 0,
+)
+
+/**
+ * Calcula a sequência da rotina sobre o histórico inteiro.
+ *
+ * Recebe as conclusões já validadas (bloco com confirmação e valor que conta) e as
+ * suspensões; [today] só define onde a corrida atual termina — a unidade de hoje pode
+ * estar incompleta, que a contagem começa na anterior.
+ */
+fun routineStreak(
+    routine: Routine,
+    validCompletions: List<Completion>,
+    suspensions: Suspensions = Suspensions.None,
+    today: LocalDate,
+): RoutineStreak {
+    val unit = if (routine.frequency == RoutineFrequency.Weekly) {
+        RoutineUnit.Week
+    } else {
+        RoutineUnit.Day
+    }
+    val unitDays = if (unit == RoutineUnit.Week) 7L else 1L
+    fun unitOf(day: LocalDate): Int = (day.toEpochDay() / unitDays).toInt()
+
+    // Sem data de criação legível, a conta vale desde sempre: melhor um número
+    // conservador do que esconder a sequência inteira.
+    val createdUnit = routine.createdOnDate()?.let { unitOf(it) } ?: Int.MIN_VALUE
+
+    val complete = routine.completePeriodStarts(validCompletions, suspensions)
+        .map { unitOf(it) }
+        .filter { it >= createdUnit }
+        .distinct()
+    val suspended = routine.suspendedPeriodStarts(suspensions)
+        .map { unitOf(it) }
+        .filter { it >= createdUnit }
+        .distinct()
+
+    // A corrida anda em unidades **ativas**: a suspensa sai do índice.
+    fun activeIndex(unitIndex: Int): Int = unitIndex - suspended.count { it < unitIndex }
+    val summary = streakSummary(
+        complete.map { activeIndex(it) }.distinct(),
+        activeIndex(unitOf(today)),
+    )
+
+    return RoutineStreak(
+        current = summary.current,
+        longest = summary.best,
+        unit = unit,
+        completedUnits = complete.size,
+    )
 }
