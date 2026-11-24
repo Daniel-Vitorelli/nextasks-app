@@ -27,6 +27,21 @@ data class HabitStreak(
  * - **Ruim**: lógica invertida — dia sem marcação é dia limpo (100), qualquer
  *   recaída zera (0). Na versão semanal, uma recaída zera a semana inteira.
  */
+/**
+ * O hábito acontece neste dia?
+ *
+ * Só hábito **bom e diário** com dias escolhidos restringe; os demais valem todo dia.
+ * Lista vazia também vale como todo dia — sem isso, um hábito gravado sem os dias
+ * (dado antigo ou escrita incompleta) sumia da Home e do gráfico.
+ */
+fun Habit.happensOn(day: LocalDate): Boolean {
+    if (!usesSchedule || daysOfWeek.isEmpty()) return true
+    return (day.dayOfWeek.value % 7) in daysOfWeek
+}
+
+/** Os hábitos que acontecem neste dia, na ordem em que vieram. */
+fun habitsForDay(habits: List<Habit>, day: LocalDate): List<Habit> = habits.filter { it.happensOn(day) }
+
 fun habitProgress(
     habit: Habit,
     countsByDay: Map<LocalDate, Int>,
@@ -41,7 +56,11 @@ fun habitProgress(
 
     val target = habit.targetCount?.coerceAtLeast(1)
     val isBad = habit.kind == HabitKind.Bad
-    val schedule = if (habit.usesSchedule) habit.daysOfWeek.toSet() else null
+    val schedule = if (habit.usesSchedule && habit.daysOfWeek.isNotEmpty()) {
+        habit.daysOfWeek.toSet()
+    } else {
+        null
+    }
 
     val result = mutableListOf<HabitDay>()
     var day = start

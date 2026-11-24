@@ -66,6 +66,7 @@ import com.daniel.nextasks.data.HabitFrequency
 import com.daniel.nextasks.data.HabitKind
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.habitProgress
+import com.daniel.nextasks.data.habitsForDay
 import com.daniel.nextasks.data.habitPeriodCount
 import com.daniel.nextasks.data.habitStreak
 import com.daniel.nextasks.data.ExtraBlockRepository
@@ -224,11 +225,7 @@ fun HomeScreen(
             }
     }
 
-    val todayHabits = remember(habits, today) {
-        habits.filter { habit ->
-            !habit.usesSchedule || (today.dayOfWeek.value % 7) in habit.daysOfWeek
-        }
-    }
+    val todayHabits = remember(habits, today) { habitsForDay(habits, today) }
 
     // Tarefas que pedem atenção hoje: prazo de hoje ou já vencido. O resumo é um
     // retrato do dia, não a lista (a lista completa fica mais abaixo, com "ver todas").
@@ -370,63 +367,74 @@ fun HomeScreen(
                     )
                 }
 
-                if (todayHabits.isNotEmpty()) {
-                    Spacer(Modifier.height(24.dp))
-                    SectionLabel(stringResource(R.string.home_habits))
-                    todayHabits.forEach { habit ->
-                        val habitCounts = habitCountsById[habit.id].orEmpty()
-                        val todayCount = habitCounts[today] ?: 0
-                        // Meta semanal se mede na semana; só hábito ruim conta o dia.
-                        val count = if (habit.kind == HabitKind.Good) {
-                            habitPeriodCount(habit, habitCounts, today)
-                        } else {
-                            todayCount
-                        }
-                        val streak = habitStreaks[habit.id] ?: 0
+            }
+        }
 
-                        // Marca e, se bateu a meta do período, avisa as conexões.
-                        suspend fun markHabit() {
-                            val total = habitRepository.complete(habit, today)
-                            onHabitChanged(habit.id, today)
-                            if (habit.kind != HabitKind.Good || !habit.hasGoal) return
-                            val target = habit.targetCount ?: return
-                            val period = habitPeriodCount(
-                                habit,
-                                habitCounts + (today to total),
-                                today,
-                            )
-                            if (period >= target) onHabitDone(habit.id)
-                        }
+        if (todayHabits.isNotEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(stringResource(R.string.home_habits))
+            todayHabits.forEach { habit ->
+                val habitCounts = habitCountsById[habit.id].orEmpty()
+                val todayCount = habitCounts[today] ?: 0
+                // Meta semanal se mede na semana; só hábito ruim conta o dia.
+                val count = if (habit.kind == HabitKind.Good) {
+                    habitPeriodCount(habit, habitCounts, today)
+                } else {
+                    todayCount
+                }
+                val streak = habitStreaks[habit.id] ?: 0
 
-                        HomeHabitRow(
-                            habit = habit,
-                            count = count,
-                            streak = streak,
-                            onToggle = {
-                                scope.launch {
-                                    if (habit.kind == HabitKind.Bad) {
-                                        if (todayCount > 0) {
-                                            habitRepository.undo(habit.id, today)
-                                            onHabitChanged(habit.id, today)
-                                        } else {
-                                            markHabit()
-                                        }
-                                    } else {
-                                        markHabit()
-                                    }
-                                }
-                            },
-                            onLongPress = {
-                                scope.launch {
+                // Marca e, se bateu a meta do período, avisa as conexões.
+                suspend fun markHabit() {
+                    val total = habitRepository.complete(habit, today)
+                    onHabitChanged(habit.id, today)
+                    if (habit.kind != HabitKind.Good || !habit.hasGoal) return
+                    val target = habit.targetCount ?: return
+                    val period = habitPeriodCount(
+                        habit,
+                        habitCounts + (today to total),
+                        today,
+                    )
+                    if (period >= target) onHabitDone(habit.id)
+                }
+
+                HomeHabitRow(
+                    habit = habit,
+                    count = count,
+                    streak = streak,
+                    onToggle = {
+                        scope.launch {
+                            if (habit.kind == HabitKind.Bad) {
+                                if (todayCount > 0) {
                                     habitRepository.undo(habit.id, today)
                                     onHabitChanged(habit.id, today)
+                                } else {
+                                    markHabit()
                                 }
-                            },
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
+                            } else {
+                                markHabit()
+                            }
+                        }
+                    },
+                    onLongPress = {
+                        scope.launch {
+                            habitRepository.undo(habit.id, today)
+                            onHabitChanged(habit.id, today)
+                        }
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
             }
+        }
+
+        if (habits.isNotEmpty() && todayHabits.isEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(stringResource(R.string.home_habits))
+            Text(
+                text = stringResource(R.string.home_habits_none_today),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         // Tarefas aparecem mesmo sem rotina ativa — são independentes dela.

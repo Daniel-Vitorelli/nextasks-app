@@ -51,6 +51,7 @@
     <string name="habit_delete_body">Excluir \"%1$s\" e o histórico dele? Não dá para desfazer.</string>
     <string name="habit_actions">Ações do hábito</string>
     <string name="home_habits">Hábitos de hoje</string>
+    <string name="home_habits_none_today">Nenhum hábito para hoje.</string>
     <string name="section_placeholder">Esta seção ainda está em construção.</string>
 
 

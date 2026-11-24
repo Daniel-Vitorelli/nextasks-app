@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 4.2`, `versionCode 75` |
-| Tamanho | ~105 arquivos Kotlin em `main`, ~24.110 linhas, 840 strings |
+| Versão atual | `versionName 4.3`, `versionCode 76` |
+| Tamanho | ~105 arquivos Kotlin em `main`, ~24.120 linhas, 841 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 190 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 194 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -188,7 +188,12 @@ HabitCompletion(habitId, date, count)
 
 - `targetCount` nulo = hábito sem meta (só conta ocorrências).
 - Bom satura na meta; ruim acumula recaídas. `allowExceed` deixa passar da meta.
-- `daysOfWeek` só vale para hábito **bom diário**; os demais valem todo dia.
+- `daysOfWeek` só vale para hábito **bom diário**; os demais valem todo dia. Lista
+  **vazia vale como todo dia** (`Habit.happensOn`): sem isso, um hábito gravado sem os
+  dias sumia da Home e do gráfico.
+- A Home mostra os hábitos do dia **independente da rotina**: a seção não fica dentro do
+  bloco que decide o que mostrar de rotina/blocos. Sem rotina ativa o topo vira o cartão
+  "Nenhuma rotina ativa" e os hábitos continuam ali para serem marcados.
 
 ### AgendaEvent / BlockOverride / ExtraBlock
 
@@ -575,6 +580,7 @@ app depois da confirmação · v4.1 duplicar hábito e bloco de tempo (tarefas e
 já tinham) e conserta o fechamento do seletor de ícones (chaves repetidas na grade) ·
 v4.2 Home: resumo do dia (blocos, tarefas, hábitos) com atalho para criar tarefa,
 "nada agora" em uma linha, progresso e sequência num cartão só e a sequência da rotina
-semanal finalmente contada em semanas.
+semanal finalmente contada em semanas · v4.3 hábitos voltam a aparecer na Home quando
+não há rotina ativa e hábito sem dias escolhidos passa a valer todo dia.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

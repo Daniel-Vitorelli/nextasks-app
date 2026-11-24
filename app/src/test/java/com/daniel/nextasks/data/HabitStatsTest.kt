@@ -265,4 +265,43 @@ class HabitStatsTest {
 
         assertEquals(2, habitPeriodCount(h, counts, saturday))
     }
+
+    // ---------- agenda do dia ----------
+
+    @Test
+    fun `bom diario com dias escolhidos nao acontece fora deles`() {
+        val terca = LocalDate.of(2026, 11, 24)
+        val h = habit(daysOfWeek = listOf(1, 3, 5))
+
+        assertFalse(h.happensOn(terca))
+        assertTrue(h.happensOn(terca.plusDays(1))) // quarta
+    }
+
+    @Test
+    fun `lista de dias vazia vale como todo dia`() {
+        // Dado antigo ou escrita incompleta não pode sumir com o hábito da Home.
+        val h = habit(daysOfWeek = emptyList())
+
+        assertTrue(h.happensOn(LocalDate.of(2026, 11, 24)))
+    }
+
+    @Test
+    fun `habito semanal ou ruim acontece todo dia`() {
+        val terca = LocalDate.of(2026, 11, 24)
+
+        assertTrue(habit(frequency = HabitFrequency.Weekly, daysOfWeek = listOf(1)).happensOn(terca))
+        assertTrue(habit(kind = HabitKind.Bad, daysOfWeek = listOf(1)).happensOn(terca))
+    }
+
+    @Test
+    fun `habitsForDay filtra pela agenda e mantem a ordem`() {
+        val terca = LocalDate.of(2026, 11, 24)
+        val foraDoDia = habit(daysOfWeek = listOf(1, 3)) // sem terça
+        val todoDia = habit(daysOfWeek = emptyList())
+        val ruim = habit(kind = HabitKind.Bad)
+
+        val hoje = habitsForDay(listOf(foraDoDia, todoDia, ruim), terca).map { it.id }
+
+        assertEquals(listOf(todoDia.id, ruim.id), hoje)
+    }
 }

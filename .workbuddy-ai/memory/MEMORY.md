@@ -29,12 +29,15 @@ lembrado de imediato, sem abrir o repositório.
   Hilt, sem Navigation-Compose (navegação é `enum AppDestination` + `when`).
 - Conquista desbloqueada é celebrada por um **overlay global** (canal no `GamificationEngine`
   lido pelo `NexTasksApp`), não por tela.
-- **Home (v4.2)**: retrato do dia no topo (blocos, tarefas para hoje, hábitos) com atalho de
-  nova tarefa, "nada agora" em uma linha, progresso e sequência no mesmo cartão. A sequência
-  anda na **unidade** da rotina (dia/semana) via `routineStreak` — a mesma conta da gamificação.
+- **Home (v4.2/v4.3)**: retrato do dia no topo (blocos, tarefas para hoje, hábitos) com
+  atalho de nova tarefa, "nada agora" em uma linha, progresso e sequência no mesmo cartão.
+  A sequência anda na **unidade** da rotina (dia/semana) via `routineStreak` — a mesma conta
+  da gamificação. **Hábitos não dependem da rotina**: a seção fica fora do bloco que decide
+  o que mostrar de rotina/blocos, e hábito bom diário com `daysOfWeek` vazio vale todo dia
+  (`Habit.happensOn`).
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **190 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **194 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
