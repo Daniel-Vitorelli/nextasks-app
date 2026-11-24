@@ -38,6 +38,9 @@ data class ExtraBlock(
         isAllDay = isAllDay,
         color = color,
         weekday = runCatching { java.time.LocalDate.parse(date).dayOfWeek.value % 7 }.getOrDefault(1),
+        // Bloco avulso só existe no dia dele, então basta o `weekday`
+        // (`scheduledWeekdays` cai nele). Gravar os 7 dias aqui mentiria sobre o modelo.
+        weekdays = emptyList(),
         confirmation = confirmation,
         scoreMax = scoreMax,
     )

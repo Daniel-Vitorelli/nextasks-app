@@ -57,6 +57,7 @@ import com.daniel.nextasks.data.AgendaEvent
 import com.daniel.nextasks.data.EventColorKey
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
+import com.daniel.nextasks.data.RoutineBlockDays
 import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.SuspensionMode
 import com.daniel.nextasks.data.coversDay
@@ -461,7 +462,7 @@ private fun countSuspendedBlocks(routine: Routine?, draft: AgendaEvent): Int {
         if (!routine.coversDay(day)) continue
         for (block in routine.blocks) {
             if (routine.frequency == RoutineFrequency.Weekly &&
-                day.dayOfWeek.value % 7 != block.weekday
+                !RoutineBlockDays.happensOn(block, day)
             ) {
                 continue
             }

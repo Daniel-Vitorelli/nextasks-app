@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,15 +62,20 @@ import com.daniel.nextasks.data.EventColorKey
 import com.daniel.nextasks.data.EventConfirmation
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
+import com.daniel.nextasks.data.RoutineBlockDays
 import com.daniel.nextasks.data.RoutineFrequency
+import com.daniel.nextasks.data.scheduledWeekdays
 import com.daniel.nextasks.ui.calendar.toEventColor
 import java.time.LocalTime
 
 /**
- * Formulário de bloco de horário: título, descrição, dia da semana (rotinas
+ * Formulário de bloco de horário: título, descrição, dias da semana (rotinas
  * semanais), horários, dia inteiro e cor.
+ *
+ * Um bloco pode estar em **vários** dias da semana — Seg/Qua/Sex compartilham o
+ * mesmo horário, a cor e a confirmação.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun BlockFormDialog(
     initial: RoutineBlock?,
@@ -76,7 +83,7 @@ fun BlockFormDialog(
     routine: Routine? = null,
     onDismiss: () -> Unit,
     onSave: (RoutineBlock) -> Unit,
-    /** Dia da semana só faz sentido ao editar a rotina, não uma ocorrência. */
+    /** Dias da semana só fazem sentido ao editar a rotina, não uma ocorrência. */
     showWeekday: Boolean = routine?.frequency == RoutineFrequency.Weekly,
     /** Aviso no topo, usado quando a edição vale só para um dia. */
     notice: String? = null,
@@ -89,7 +96,10 @@ fun BlockFormDialog(
     var endTime by rememberSaveable { mutableStateOf(initial?.endTime ?: "09:00") }
     var allDay by rememberSaveable { mutableStateOf(initial?.isAllDay ?: false) }
     var color by rememberSaveable { mutableStateOf(initial?.color ?: EventColorKey.Green) }
-    var weekday by rememberSaveable { mutableStateOf(initial?.weekday ?: 1) }
+    // O bloco pode estar em vários dias: lista de 0..6, nunca vazia.
+    var days by rememberSaveable {
+        mutableStateOf(initial?.scheduledWeekdays ?: listOf(1))
+    }
     var confirmation by rememberSaveable {
         mutableStateOf(initial?.confirmation ?: EventConfirmation.None)
     }
@@ -150,7 +160,10 @@ fun BlockFormDialog(
                                         endTime = endTime,
                                         isAllDay = allDay,
                                         color = color,
-                                        weekday = weekday,
+                                        // `weekday` acompanha para os dados antigos
+                                        // continuarem legíveis por uma versão anterior.
+                                        weekday = days.first(),
+                                        weekdays = days,
                                         confirmation = confirmation,
                                         scoreMax = effectiveScoreMax,
                                     ),
@@ -221,12 +234,21 @@ fun BlockFormDialog(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            WeekdayLetters.forEachIndexed { index, letter ->
+                        // FlowRow: os 7 chips não cabem numa linha só em tela estreita,
+                        // e um `Row` com scroll esconderia os últimos dias. Os rótulos
+                        // são completos ("Dom", "Seg"…): com uma letra só, S/T/Q se
+                        // repetem e não dá para saber qual dia está marcado.
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            RoutineBlockDays.All.forEach { index ->
                                 FilterChip(
-                                    selected = weekday == index,
-                                    onClick = { weekday = index },
-                                    label = { Text(letter) },
+                                    selected = index in days,
+                                    // O último dia ligado não sai (`toggle` segura):
+                                    // sem dia nenhum o bloco sumiria do calendário.
+                                    onClick = { days = RoutineBlockDays.toggle(days, index) },
+                                    label = { Text(stringResource(weekdayShortRes(index))) },
                                 )
                             }
                         }

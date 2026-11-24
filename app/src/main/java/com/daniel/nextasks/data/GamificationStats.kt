@@ -105,8 +105,9 @@ fun gamificationStats(
             completion.value.toIntOrNull() == block.scoreMax
     }
 
-    // Dia/semana 100% da rotina ativa: período completo quando todos os blocos
-    // confirmáveis têm confirmação válida.
+    // Unidade completa da rotina ativa: o dia na diária, a semana na semanal. Em
+    // rotina semanal com o bloco em Seg/Qua/Sex, a semana só fecha quando as três
+    // ocorrências foram confirmadas — cada uma é independente.
     val active = routines.firstOrNull { it.isActive }
     val activeCreated = active?.createdOnDate()
     var days100 = 0
@@ -115,20 +116,12 @@ fun gamificationStats(
     if (active != null && activeCreated != null && active.blocks.isNotEmpty()) {
         val unitDays = if (active.frequency == RoutineFrequency.Weekly) 7L else 1L
         val createdUnit = activeCreated.toEpochDay() / unitDays
-        val confirmable = active.blocks.count { it.confirmation != EventConfirmation.None }
+        val units = active.completePeriodStarts(valid)
+            .map { (it.toEpochDay() / unitDays).toInt() }
+            .filter { it >= createdUnit }
 
-        val fullUnits = valid
-            .filter { completion -> blocksById[completion.blockId] in active.blocks }
-            .groupBy { it.periodStart }
-            .mapNotNull { (periodStart, list) ->
-                if (list.map { it.blockId }.distinct().size < confirmable) return@mapNotNull null
-                val day = parseIsoDate(periodStart) ?: return@mapNotNull null
-                val unit = (day.toEpochDay() / unitDays).toInt()
-                if (unit < createdUnit) null else unit
-            }
-
-        days100 = fullUnits.size
-        val summary = streakSummary(fullUnits, (today.toEpochDay() / unitDays).toInt())
+        days100 = units.size
+        val summary = streakSummary(units, (today.toEpochDay() / unitDays).toInt())
         bestRoutineStreak = summary.best
         currentRoutineStreak = summary.current
     }

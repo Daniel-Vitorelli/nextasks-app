@@ -137,7 +137,8 @@
     <string name="block_title_label">Título</string>
     <string name="block_title_placeholder">Ex.: Café da manhã</string>
     <string name="block_description_label">Descrição</string>
-    <string name="block_weekday">Dia da semana</string>
+    <string name="block_weekday">Dias da semana</string>
+    <string name="block_days_all">Todos os dias</string>
     <string name="block_start">Início</string>
     <string name="block_end">Fim</string>
     <string name="block_color">Cor</string>

@@ -130,7 +130,6 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
         ConnectionEngine(
             connectionRepository = connectionRepository,
             completionRepository = completionRepository,
-            routineRepository = routineRepository,
             taskCompletion = taskCompletion,
             subtaskRepository = subtaskRepository,
             habitRepository = habitRepository,
@@ -165,6 +164,19 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                     celebrationQueue.add(achievement)
                 }
             }
+        }
+    }
+
+    // Chave das conclusões: até a v3.48 a rotina semanal gravava no domingo da semana;
+    // agora grava no dia da ocorrência. Migra antes de as telas lerem o histórico.
+    // Lê os fluxos com `first()` (valor real, não o vazio do primeiro frame) e é
+    // idempotente: sem conclusão antiga, não escreve nada.
+    LaunchedEffect(Unit) {
+        runCatching {
+            completionRepository.migrateWeeklyKeys(
+                routines = routineRepository.routines.first(),
+                extras = extraRepository.blocks.first(),
+            )
         }
     }
 
@@ -305,6 +317,8 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 settingsRepository = settingsRepository,
                 backupService = backupService,
                 routineRepository = routineRepository,
+                completionRepository = completionRepository,
+                extraRepository = extraRepository,
                 taskRepository = taskRepository,
                 habitRepository = habitRepository,
                 eventRepository = eventRepository,

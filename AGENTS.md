@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.48`, `versionCode 69` |
-| Tamanho | ~91 arquivos Kotlin, ~21.060 linhas, 746 strings |
+| Versão atual | `versionName 3.49`, `versionCode 70` |
+| Tamanho | ~96 arquivos Kotlin em `main`, ~21.500 linhas, 747 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 112 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 144 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -82,6 +82,9 @@ ui/      telas Compose (uma por seção) + componentes + tema
 | `Dates.kt` | Parse de data/hora tolerante (`parseIsoDate`, `parseIsoTime`) |
 | `*Repository.kt` | Um por entidade; expõe `Flow<List<T>>` e funções de escrita |
 | `*Stats.kt`, `SubtaskCascade.kt`, `TaskSort.kt`, `RoutineSchedule.kt` | Regras puras (sem Android) |
+| `RoutineBlockDays.kt` | Em quais dias da semana o bloco acontece (`scheduledWeekdays`) |
+| `RoutinePeriods.kt` | Unidade da rotina (dia/semana) e "quando ela está completa" |
+| `CompletionKeys.kt` | Migra a chave de conclusão antiga (domingo) para o dia da ocorrência |
 | `TaskCompletion.kt` | Conclusão de tarefa **com** a cascata das sub-tarefas |
 | `Connection*.kt` | Modelo, repositório, motor e sugestões de conexão |
 | `Gamification*.kt` | XP, níveis, ranks, catálogo de conquistas e retrato de estatísticas |
@@ -132,14 +135,18 @@ Routine(id, name, description, frequency, duration, endDate, isActive, createdAt
   frequency: Daily | Weekly
   duration:  Indefinite | Until
 RoutineBlock(id, title, description, startTime, endTime, isAllDay, color, weekday,
-             confirmation, scoreMax)
+             confirmation, scoreMax, weekdays)
   confirmation: None | Checklist | Score
+  weekdays:   0..6 (0 = domingo), pode ter mais de um dia; vazio = dado antigo
 ```
 
 - **Só uma rotina ativa por vez** (`isActive`). Ativar uma desativa as outras — e a primeira
   rotina criada quando não há nenhuma ativa já nasce ativa.
-- `startTime`/`endTime` são `"HH:MM"`. `weekday` (0 = domingo) só importa em `Weekly`.
-- Blocos de rotina semanal só ocorrem no próprio dia da semana.
+- `startTime`/`endTime` são `"HH:MM"`. Os dias (`weekdays`, 0 = domingo) só importam em
+  `Weekly` e podem ser **vários** (Seg/Qua/Sex). Nunca leia `weekday` cru: use
+  `RoutineBlock.scheduledWeekdays` (`RoutineBlockDays.kt`), que ainda aceita o dado antigo.
+- Bloco de rotina semanal só ocorre nos dias dele. O vazio nunca é gravado: o
+  normalizador do repositório preenche `weekdays` a partir do `weekday` antigo.
 
 ### Completion
 
@@ -147,8 +154,11 @@ RoutineBlock(id, title, description, startTime, endTime, isAllDay, color, weekda
 Completion(blockId, periodStart, value)
 ```
 
-- Chave: **(bloco, início do período)**. Período = **dia** em rotina diária,
-  **início da semana** em semanal (`CalendarDates.startOfWeek()`).
+- Chave: **(bloco, dia da ocorrência)** — igual em rotina diária e semanal. Um bloco de
+  Seg/Qua/Sex tem **três** confirmações independentes por semana.
+- Até a v3.48 a rotina semanal gravava no domingo da semana; `CompletionKeys.kt` migra
+  esses registros para o dia da ocorrência (na abertura do app e depois de restaurar
+  backup). A gamificação continua agregando por período (`RoutinePeriods.kt`).
 - `value`: `"true"`/`"false"` (checklist) ou a nota `"1".."5"` (score).
 - **Não dá para confirmar antes do horário de início** — o checkbox só aparece depois.
 
@@ -256,25 +266,31 @@ gamificação, e continua aparecendo com o addon desligado.
 
 ### 7.1 Períodos
 
-Rotina diária confirma por **dia**; semanal, por **semana** (início = domingo).
-Errar isso faz o progresso contar duas vezes ou nunca.
+**A confirmação é sempre de um dia.** A chave da `Completion` é `(bloco, dia)`, em rotina
+diária e semanal — antes a semanal gravava no domingo da semana e um bloco de
+Seg/Qua/Sex tinha uma confirmação só para os três dias.
+
+O que muda com a frequência é a **unidade de avaliação** (`RoutinePeriods.kt`): o dia na
+diária, a semana (domingo) na semanal. A unidade só fecha quando **todas** as ocorrências
+dela foram confirmadas — é daí que saem o 100% e o XP de `routine:dayFull`. Errar um dos
+dois lados faz o progresso contar duas vezes ou nunca.
 
 ### 7.2 Conexões — motor nos dois sentidos
 
 - **Bloco → entidade**: confirmar o bloco conta para a conexão; ao atingir
   `requiredCount`, conclui a tarefa/sub-tarefa ou fecha a meta do hábito.
-- **Entidade → bloco**: concluir a tarefa/sub-tarefa/hábito confirma o bloco no período
-  atual (semanal usa o início da semana), se ainda não estiver confirmado.
+- **Entidade → bloco**: concluir a tarefa/sub-tarefa/hábito confirma o bloco **do dia**,
+  se ainda não estiver confirmado.
 - Confirmações **anteriores à criação** da conexão não contam (`createdOn`).
 - `dayFilter` restringe quais períodos contam; `date:` só admite meta 1.
-- Em rotina **semanal** não existe filtro de dia: a confirmação é gravada no início da
-  semana, então `weekday:`/`date:` comparariam sempre com o domingo e a conexão nunca
-  contaria. `dayFilterFor` força `all` nesse caso e o editor esconde os chips.
+- Em rotina **semanal** não existe filtro de dia: a conexão conta todas as ocorrências da
+  semana e restringir por dia mudaria o significado de conexões antigas. `dayFilterFor`
+  força `all` nesse caso e o editor esconde os chips.
 - **Desmarcar o bloco desfaz** o que a conexão concluiu: tarefa e sub-tarefa voltam a
   aberta quando a contagem cai abaixo da meta — a menos que outra conexão da mesma
   entidade continue satisfeita. Hábito **não** volta (a marcação é do usuário).
-- **Bloco → hábito usa o dia do bloco**, não "hoje": em rotina semanal o período é o
-  domingo e o bloco acontece `weekday` dias depois. A marcação é feita com
+- **Bloco → hábito usa o dia do bloco**, não "hoje": o período recebido é o dia da
+  ocorrência (também no semanal multi-dia) e é nele que o hábito é marcado. A marcação é feita com
   `HabitRepository.ensureCount` (garante a meta sem somar de novo), então confirmar,
   desmarcar e remarcar não infla a contagem.
 - **Recaída de hábito ruim não confirma bloco**: `onHabitDone` só age em hábito bom.
@@ -320,6 +336,8 @@ Ignora pares já conectados e entidades concluídas.
 - `reconcile()` refaz todo o XP de domínio a partir dos dados. Roda ao confirmar bloco e
   ao abrir a tela — cobre o que pontua fora das telas (conexão que conclui tarefa,
   backup restaurado). Conquistas ficam fora da varredura (são permanentes).
+- **100% é por unidade**: dia na rotina diária, semana na semanal; numa rotina semanal
+  multi-dia a semana só fecha com todas as ocorrências confirmadas (`RoutinePeriods.kt`).
 - Conquistas são avaliadas em laço: o XP de uma pode subir de nível e destravar outra.
 - **Divergência do web**: lá a nota cheia é `10`; aqui a nota é `1..scoreMax` por bloco,
   então "nota cheia" é `valor == scoreMax`.
@@ -484,6 +502,7 @@ v3.45 ranks mais duros, 100 conquistas, animações e celebração no desbloquei
 v3.46 animações de entrada, trilha do rank, contagem dos números e halo na celebração ·
 v3.47 trilha do rank volta a preencher só os vãos entre os brasões ·
 v3.48 corrige o empilhamento da aba de conquistas (TabContent virou Column),
-formata milhares e mostra o XP de cada tier em "Como ganhar".
+formata milhares e mostra o XP de cada tier em "Como ganhar" · v3.49 bloco semanal em
+vários dias com confirmação por dia, migração da chave e chips com o nome do dia.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

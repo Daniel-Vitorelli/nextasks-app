@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 internal val Context.routineStore: DataStore<List<Routine>> by dataStore(
@@ -23,32 +24,34 @@ internal val Context.routineStore: DataStore<List<Routine>> by dataStore(
 class RoutineRepository(context: Context) {
     private val store = context.applicationContext.routineStore
 
-    val routines: Flow<List<Routine>> = store.data
+    val routines: Flow<List<Routine>> = store.data.map { current -> current.map { it.normalized() } }
 
     suspend fun save(routine: Routine) {
         store.updateData { current ->
             val isNew = current.none { it.id == routine.id }
             // Primeira rotina já nasce ativa — senão o usuário cria, abre o calendário
             // e não vê nada. Da segunda em diante, fica inativa até ele ativar.
-            val incoming = if (isNew && !routine.isActive && current.none { it.isActive }) {
+            val incoming0 = if (isNew && !routine.isActive && current.none { it.isActive }) {
                 routine.copy(isActive = true)
             } else {
                 routine
             }
-
+            val incoming = incoming0.normalized()
             val updated = if (isNew) current + incoming else current.map {
                 if (it.id == incoming.id) incoming else it
             }
 
-            // Invariante: no máximo uma ativa.
-            if (!incoming.isActive) {
-                updated
-            } else {
-                updated.map { other ->
-                    if (other.id != incoming.id && other.isActive) {
-                        other.copy(isActive = false)
-                    } else {
-                        other
+            // Invariante: no máximo uma ativa. O "só uma" vale sobre a lista final.
+            updated.map { it.normalized() }.let { list ->
+                if (!incoming.isActive) {
+                    list
+                } else {
+                    list.map { other ->
+                        if (other.id != incoming.id && other.isActive) {
+                            other.copy(isActive = false)
+                        } else {
+                            other
+                        }
                     }
                 }
             }
@@ -130,10 +133,12 @@ class RoutineRepository(context: Context) {
                     routine
                 } else {
                     val exists = routine.blocks.any { it.id == block.id }
+                    // Um bloco, um horário: sai do mesmo jeito em todo dia que pega.
+                    val incoming = block.syncedDays()
                     val blocks = if (exists) {
-                        routine.blocks.map { if (it.id == block.id) block else it }
+                        routine.blocks.map { if (it.id == block.id) incoming else it }
                     } else {
-                        routine.blocks + block
+                        routine.blocks + incoming
                     }
                     routine.copy(blocks = blocks.sortedWith(compareBy { it.startTime }))
                 }
@@ -152,4 +157,27 @@ class RoutineRepository(context: Context) {
             }
         }
     }
+}
+
+/**
+ * Deixa o bloco com os dois campos de dia coerentes.
+ *
+ * `weekdays` é a verdade; `weekday` passa a ser o primeiro dia dela, para que uma
+ * versão anterior do app continue mostrando o bloco em algum dia certo. Bloco antigo
+ * (sem `weekdays`) ganha a lista a partir do `weekday` que ele já tinha.
+ */
+internal fun RoutineBlock.syncedDays(): RoutineBlock {
+    val days = scheduledWeekdays
+    return if (weekdays == days && weekday == days.first()) {
+        this
+    } else {
+        copy(weekdays = days, weekday = days.first())
+    }
+}
+
+/** Aplica [syncedDays] a todos os blocos — usado na leitura e na escrita. */
+internal fun Routine.normalized(): Routine {
+    if (blocks.isEmpty()) return this
+    val synced = blocks.map { it.syncedDays() }
+    return if (synced == blocks) this else copy(blocks = synced)
 }

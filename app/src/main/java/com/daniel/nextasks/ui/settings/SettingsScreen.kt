@@ -63,8 +63,10 @@ import com.daniel.nextasks.data.AccentColor
 import com.daniel.nextasks.data.Addon
 import com.daniel.nextasks.data.BackupService
 import com.daniel.nextasks.data.BackupSummary
+import com.daniel.nextasks.data.CompletionRepository
 import com.daniel.nextasks.data.ConnectionRepository
 import com.daniel.nextasks.data.EventRepository
+import com.daniel.nextasks.data.ExtraBlockRepository
 import com.daniel.nextasks.data.HabitRepository
 import com.daniel.nextasks.data.RestoreResult
 import com.daniel.nextasks.data.RoutineRepository
@@ -96,6 +98,8 @@ fun SettingsScreen(
     settingsRepository: SettingsRepository,
     backupService: BackupService,
     routineRepository: RoutineRepository,
+    completionRepository: CompletionRepository,
+    extraRepository: ExtraBlockRepository,
     taskRepository: TaskRepository,
     habitRepository: HabitRepository,
     eventRepository: EventRepository,
@@ -403,6 +407,16 @@ fun SettingsScreen(
                                 withContext(Dispatchers.IO) { backupService.restore(json) }
                             }.getOrNull()
                             if (result is RestoreResult.Restored) {
+                                // O backup pode ter vindo de uma versão anterior: as
+                                // conclusões de rotina semanal ainda estariam na chave
+                                // antiga (domingo da semana). Traduz antes de qualquer
+                                // tela reler o histórico.
+                                runCatching {
+                                    completionRepository.migrateWeeklyKeys(
+                                        routines = routineRepository.routines.first(),
+                                        extras = extraRepository.blocks.first(),
+                                    )
+                                }
                                 // O backup pode trazer conexões de blocos/entidades que
                                 // não vieram no mesmo arquivo. Lê os fluxos com `first()`
                                 // (o estado da tela ainda é o de antes da restauração).

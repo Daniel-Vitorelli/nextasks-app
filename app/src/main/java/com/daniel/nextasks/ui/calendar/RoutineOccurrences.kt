@@ -8,9 +8,11 @@ import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.SuspensionMode
 import com.daniel.nextasks.data.RoutineFrequency
+import com.daniel.nextasks.data.RoutineBlockDays
 import com.daniel.nextasks.data.coversDay
 import com.daniel.nextasks.data.parseIsoDate
 import com.daniel.nextasks.data.parseIsoTime
+import com.daniel.nextasks.data.scheduledWeekdays
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -33,7 +35,7 @@ fun EventColorKey.toEventColor(): EventColor = when (this) {
  * - rotina inativa não gera nada;
  * - **antes da criação da rotina** não gera nada ([coversDay]);
  * - duração "até" corta os dias depois da data final;
- * - rotina semanal só ocorre no dia da semana do bloco;
+ * - rotina semanal só ocorre nos dias da semana do bloco ([RoutineBlockDays]);
  * - bloco que termina antes de começar atravessa a meia-noite;
  * - exceção do dia ([BlockOverride]) substitui ou esconde a ocorrência daquele dia,
  *   sem tocar na rotina.
@@ -68,9 +70,8 @@ fun routineOccurrences(
             if (!routine.coversDay(day)) continue
 
             for (original in routine.blocks) {
-                if (routine.frequency == RoutineFrequency.Weekly &&
-                    day.dayOfWeek.value % 7 != original.weekday
-                ) {
+                val weekly = routine.frequency == RoutineFrequency.Weekly
+                if (weekly && !RoutineBlockDays.happensOn(original, day)) {
                     continue
                 }
 
@@ -101,11 +102,11 @@ fun routineOccurrences(
                     confirmation = block.confirmation,
                     scoreMax = block.scoreMax,
                     isOverridden = override != null,
-                    completionPeriodStart = if (routine.frequency == RoutineFrequency.Weekly) {
-                        day.startOfWeek()
-                    } else {
-                        day
-                    },
+                    // A chave da conclusão é (bloco, **dia da ocorrência**) — vale para
+                    // rotina diária e semanal. Antes a semanal gravava no domingo da
+                    // semana, o que fazia um bloco de Seg/Qua/Sex ter uma confirmação só
+                    // para os três dias.
+                    completionPeriodStart = day,
                 )
             }
         }
@@ -135,11 +136,8 @@ fun routineOccurrences(
             confirmation = block.confirmation,
             scoreMax = block.scoreMax,
             isExtra = true,
-            completionPeriodStart = if (routine?.frequency == RoutineFrequency.Weekly) {
-                day.startOfWeek()
-            } else {
-                day
-            },
+            // Bloco avulso também confirma no dia dele, mesmo preso a rotina semanal.
+            completionPeriodStart = day,
         )
     }
 
@@ -194,9 +192,14 @@ fun EventColor.toColorKey(): EventColorKey = when (this) {
 /**
  * Reconstrói o bloco a partir do evento exibido, para abrir o formulário já
  * preenchido ao editar a ocorrência de um dia.
+ *
+ * Os dias da semana vêm do próprio bloco ([origin]), não da data do evento: editar
+ * a ocorrência de quarta não pode transformar um bloco de Seg/Qua/Sex em "só quarta".
  */
-fun CalendarEvent.toEditableBlock(): RoutineBlock? = blockId?.let { id ->
-    RoutineBlock(
+fun CalendarEvent.toEditableBlock(origin: RoutineBlock? = null): RoutineBlock? {
+    val id = blockId ?: return null
+    val days = origin?.scheduledWeekdays ?: listOf(RoutineBlockDays.indexOf(start.toLocalDate()))
+    return RoutineBlock(
         id = id,
         title = title,
         description = description,
@@ -204,7 +207,8 @@ fun CalendarEvent.toEditableBlock(): RoutineBlock? = blockId?.let { id ->
         endTime = end.toLocalTime().format(HhMm),
         isAllDay = isAllDay,
         color = color.toColorKey(),
-        weekday = start.dayOfWeek.value % 7,
+        weekday = days.first(),
+        weekdays = days,
         confirmation = confirmation,
         scoreMax = scoreMax,
     )

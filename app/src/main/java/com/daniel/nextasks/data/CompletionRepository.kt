@@ -38,4 +38,18 @@ class CompletionRepository(context: Context) {
     suspend fun clearForBlock(blockId: String) {
         store.updateData { current -> current.filterNot { it.blockId == blockId } }
     }
+
+    /**
+     * Traduz as conclusões antigas de rotina semanal (chave = domingo da semana) para
+     * o **dia da ocorrência**, que passou a ser a chave na v3.49.
+     *
+     * Roda ao abrir o app e depois de restaurar um backup. É idempotente: sem nada
+     * para migrar, o arquivo não é reescrito. Ver [migratedCompletions].
+     */
+    suspend fun migrateWeeklyKeys(routines: List<Routine>, extras: List<ExtraBlock>) {
+        store.updateData { current ->
+            val migrated = migratedCompletions(current, routines, extras)
+            if (migrated == current) current else migrated
+        }
+    }
 }

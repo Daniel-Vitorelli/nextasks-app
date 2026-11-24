@@ -41,7 +41,13 @@ enum class EventConfirmation {
  * Bloco de horário dentro de uma rotina. Espelha o `TimeBlock` do app web.
  *
  * `startTime`/`endTime` ficam como "HH:mm" (horário de parede). Em rotinas
- * semanais, `weekday` diz em que dia da semana o bloco acontece (0 = domingo).
+ * semanais, `weekdays` diz em quais dias da semana o bloco acontece
+ * (0 = domingo … 6 = sábado) — pode ser mais de um.
+ *
+ * `weekday` é o campo antigo, de quando o bloco cabia em um dia só. Ele continua
+ * sendo gravado junto com `weekdays` para que uma versão anterior do app (ou um
+ * backup antigo) não abra o bloco no dia errado. Nunca leia `weekday` direto:
+ * use [scheduledWeekdays].
  */
 @Serializable
 data class RoutineBlock(
@@ -56,6 +62,13 @@ data class RoutineBlock(
     val confirmation: EventConfirmation = EventConfirmation.None,
     /** Nota máxima quando a confirmação é [EventConfirmation.Score] (escala de 1 a N). */
     val scoreMax: Int = 5,
+    /**
+     * Dias da semana do bloco em rotina semanal (0 = domingo).
+     *
+     * Vazio = bloco gravado antes da v3.49, que só tinha [weekday]. O normalizador
+     * do repositório preenche os dados antigos na leitura; nada deve gravar vazio.
+     */
+    val weekdays: List<Int> = emptyList(),
 )
 
 /**

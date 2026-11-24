@@ -31,7 +31,7 @@ lembrado de imediato, sem abrir o repositório.
   lido pelo `NexTasksApp`), não por tela.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **112 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **144 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
@@ -39,9 +39,14 @@ lembrado de imediato, sem abrir o repositório.
 
 ## Regras de negócio que já causaram bug
 
-- Período de confirmação: rotina **diária = dia**, **semanal = início da semana**.
-- Bloco→hábito usa o **dia do bloco** (semanal: período + `weekday`), não "hoje"; a marcação
-  passa por `ensureCount` e não soma de novo.
+- Confirmação de bloco é **sempre de um dia**: a chave é `(bloco, dia)`, em rotina diária e
+  semanal. Bloco de Seg/Qua/Sex tem três confirmações independentes (v3.49; antes a semanal
+  gravava no domingo e uma valia pelas três).
+- **Unidade de avaliação** ≠ chave: o "100%" e o XP de `routine:dayFull` contam **dia** na
+  diária e **semana** na semanal, e a semana só fecha com todas as ocorrências confirmadas
+  (`RoutinePeriods.kt`).
+- Bloco→hábito usa o **dia da ocorrência** (que é o próprio período recebido), não "hoje"; a
+  marcação passa por `ensureCount` e não soma de novo.
 - **XP negativo é lançamento** (recaída −15); só `0` remove.
 - **Rank exige nível + conquistas** (`rankFor`); XP sozinho não sobe a escada.
 - Só uma rotina ativa por vez; bloco só é confirmável **depois** do horário de início.

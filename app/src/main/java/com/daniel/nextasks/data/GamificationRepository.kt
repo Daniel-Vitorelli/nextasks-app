@@ -212,30 +212,23 @@ class GamificationEngine(
             }
         }
 
-        // Dia 100%: um bônus por período em que todos os blocos confirmáveis fecharam.
+        // Unidade 100%: um bônus por dia (rotina diária) ou semana (semanal) em que
+        // **todas** as ocorrências confirmáveis fecharam. Numa rotina semanal com o
+        // bloco em Seg/Qua/Sex a semana só fecha com as três confirmadas.
         val active = routines.firstOrNull { it.isActive }
         if (active != null) {
-            val confirmable = active.blocks.filter { it.confirmation != EventConfirmation.None }
-            val confirmableIds = confirmable.map { it.id }.toSet()
-            completions
-                .filter { it.blockId in confirmableIds }
-                .groupBy { it.periodStart }
-                .forEach { (periodStart, list) ->
-                    val done = list
-                        .filter { completion ->
-                            val block = confirmable.first { it.id == completion.blockId }
-                            completionCounts(block.confirmation, completion.value)
-                        }
-                        .map { it.blockId }
-                        .distinct()
-                    if (done.size >= confirmable.size && confirmable.isNotEmpty()) {
-                        desired += XpEntry(
-                            XpKind.RoutineDayFull,
-                            XpAmounts.ROUTINE_DAY_FULL,
-                            "routine:dayFull:$periodStart",
-                        )
-                    }
-                }
+            val byId = active.blocks.associateBy { it.id }
+            val valid = completions.mapNotNull { completion ->
+                val block = byId[completion.blockId] ?: return@mapNotNull null
+                if (completionCounts(block.confirmation, completion.value)) completion else null
+            }
+            active.completePeriodStarts(valid).forEach { unitStart ->
+                desired += XpEntry(
+                    XpKind.RoutineDayFull,
+                    XpAmounts.ROUTINE_DAY_FULL,
+                    "routine:dayFull:$unitStart",
+                )
+            }
         }
 
         xpRepository.replaceDomain(desired)

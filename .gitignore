@@ -11,3 +11,6 @@ captures/
 *.aab
 *.keystore
 !debug.keystore
+
+# Capturas e dumps temporários do teste manual no emulador.
+.tmp-*

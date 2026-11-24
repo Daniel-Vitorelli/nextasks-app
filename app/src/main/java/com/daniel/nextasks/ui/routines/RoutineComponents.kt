@@ -34,6 +34,7 @@ import com.daniel.nextasks.data.EventConfirmation
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.RoutineFrequency
+import com.daniel.nextasks.data.scheduledWeekdays
 import com.daniel.nextasks.ui.calendar.toEventColor
 
 /** Linha de um bloco de horário dentro do detalhe da rotina. */
@@ -117,13 +118,13 @@ fun BlockRow(
     }
 }
 
-/** "Dia inteiro", "08:00 – 09:00" ou "S • 08:00 – 09:00" em rotinas semanais. */
+/** "Dia inteiro", "08:00 – 09:00" ou "Seg, Qua • 08:00 – 09:00" em rotinas semanais. */
 @Composable
 internal fun blockTimeLabel(block: RoutineBlock, showWeekday: Boolean): String {
     if (block.isAllDay) return stringResource(R.string.calendar_all_day)
     val range = stringResource(R.string.block_time_range, block.startTime, block.endTime)
     return if (showWeekday) {
-        "${WeekdayLetters[block.weekday.coerceIn(0, 6)]} • $range"
+        "${formatBlockDays(block.scheduledWeekdays)} • $range"
     } else {
         range
     }

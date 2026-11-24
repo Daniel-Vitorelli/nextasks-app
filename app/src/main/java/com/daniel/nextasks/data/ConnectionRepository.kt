@@ -102,7 +102,10 @@ class ConnectionRepository(context: Context) {
  * - **Bloco → entidade** ([onBlockConfirmed]): confirmar o bloco o suficiente
  *   conclui a tarefa/sub-tarefa ou fecha a meta do hábito.
  * - **Entidade → bloco** ([onTaskDone], [onSubtaskDone], [onHabitDone]):
- *   concluir a entidade confirma o bloco no período atual.
+ *   concluir a entidade confirma o bloco **do dia**.
+ *
+ * A confirmação é sempre de um dia: numa rotina semanal com o bloco em Seg/Qua/Sex,
+ * confirmar a segunda não confirma a quarta.
  *
  * A conclusão de tarefa passa por [TaskCompletion] para não perder a cascata das
  * sub-tarefas — era exatamente o que faltava aqui.
@@ -110,7 +113,6 @@ class ConnectionRepository(context: Context) {
 class ConnectionEngine(
     private val connectionRepository: ConnectionRepository,
     private val completionRepository: CompletionRepository,
-    private val routineRepository: RoutineRepository,
     private val taskCompletion: TaskCompletion,
     private val subtaskRepository: SubtaskRepository,
     private val habitRepository: HabitRepository,
@@ -128,9 +130,10 @@ class ConnectionEngine(
     /**
      * Sentido bloco → entidade.
      *
-     * [period] é o período da confirmação (o dia, ou o início da semana em rotina
-     * semanal). Precisa vir da tela: usar `LocalDate.now()` aqui fazia confirmar o
-     * bloco de ontem fechar a meta do hábito **hoje**.
+     * [period] é o **dia da ocorrência confirmada** — em rotina semanal também, porque
+     * cada dia do bloco é uma confirmação própria. Precisa vir da tela: usar
+     * `LocalDate.now()` aqui fazia confirmar o bloco de ontem fechar a meta do hábito
+     * **hoje**, e marcar o hábito no dia errado.
      */
     suspend fun onBlockConfirmed(blockId: String, period: LocalDate = LocalDate.now()) {
         if (!enabled()) return
@@ -147,7 +150,7 @@ class ConnectionEngine(
     }
 
     /**
-     * Sentido inverso: concluir a entidade confirma o bloco no período atual.
+     * Sentido inverso: concluir a entidade confirma o bloco **do dia**.
      *
      * Cada entidade tem sua função porque o "concluído" é diferente em cada uma
      * (tarefa tem flag, sub-tarefa também, hábito bate meta de contagem).
@@ -177,22 +180,16 @@ class ConnectionEngine(
         val links = connectionRepository.connections.first().filter(match)
         if (links.isEmpty()) return
 
-        val routines = routineRepository.routines.first()
         val completions = completionRepository.completions.first()
 
         links.forEach { link ->
-            val routine = routines.firstOrNull { it.id == link.routineId } ?: return@forEach
-            // Mesma regra do calendário: semanal conta a semana inteira.
-            val period = if (routine.frequency == RoutineFrequency.Weekly) {
-                today.minusDays((today.dayOfWeek.value % 7).toLong())
-            } else {
-                today
-            }
-            val key = period.toString()
+            // Mesma regra do calendário: a chave é o dia. Numa rotina semanal isso
+            // confirma só a ocorrência de hoje, não a semana inteira.
+            val key = today.toString()
             val already = completions.any {
                 it.blockId == link.blockId && it.periodStart == key && it.value != "false"
             }
-            if (!already) completionRepository.set(link.blockId, period, "true")
+            if (!already) completionRepository.set(link.blockId, today, "true")
         }
     }
 
@@ -203,7 +200,7 @@ class ConnectionEngine(
      * do usuário e a conexão não consegue separar o que foi dela do que foi manual.
      * Se outra conexão da mesma entidade continua satisfeita, nada é desfeito.
      */
-    suspend fun onBlockUnconfirmed(blockId: String, today: LocalDate = LocalDate.now()) {
+    suspend fun onBlockUnconfirmed(blockId: String, period: LocalDate = LocalDate.now()) {
         if (!enabled()) return
 
         val links = connectionRepository.connections.first().filter { it.blockId == blockId }
@@ -223,7 +220,10 @@ class ConnectionEngine(
         advance(connection, today)
     }
 
-    private suspend fun revert(link: Connection, completions: List<Completion>) {
+    private suspend fun revert(
+        link: Connection,
+        completions: List<Completion>,
+    ) {
         val entityId = link.entityId ?: return
 
         // Outra conexão da mesma entidade pode continuar batendo a meta.
@@ -265,26 +265,11 @@ class ConnectionEngine(
 
         link.habitId?.let { id ->
             val habit = habitRepository.habitList.first().firstOrNull { it.id == id } ?: return
-            // Garante a meta do período sem somar de novo: confirmar o mesmo bloco
-            // duas vezes (ou desmarcar e remarcar) não infla a contagem.
-            habitRepository.ensureCount(habit, habitDay(link, period))
+            // O hábito é marcado no **dia da ocorrência** — que agora é o próprio
+            // período, em rotina diária e semanal. Garante a meta sem somar de novo:
+            // confirmar o mesmo bloco duas vezes (ou desmarcar e remarcar) não infla
+            // a contagem.
+            habitRepository.ensureCount(habit, period)
         }
-    }
-
-    /**
-     * Dia em que o hábito recebe a marcação da conexão.
-     *
-     * Em rotina diária é o próprio período. Em semanal o período é o domingo e o
-     * bloco acontece `weekday` dias depois — a marcação vai para o dia do bloco,
-     * não para "hoje". Antes o motor usava `LocalDate.now()`, então confirmar o
-     * bloco de ontem fechava a meta do hábito hoje.
-     */
-    private suspend fun habitDay(link: Connection, period: LocalDate): LocalDate {
-        val routine = routineRepository.routines.first()
-            .firstOrNull { it.id == link.routineId }
-            ?: return period
-        if (routine.frequency != RoutineFrequency.Weekly) return period
-        val block = routine.blocks.firstOrNull { it.id == link.blockId } ?: return period
-        return period.plusDays(block.weekday.toLong())
     }
 }

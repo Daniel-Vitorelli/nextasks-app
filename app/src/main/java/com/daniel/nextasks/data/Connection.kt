@@ -75,10 +75,10 @@ sealed interface DayFilter {
 /**
  * Filtro de dia que a conexão deve gravar.
  *
- * Em rotina **semanal** a confirmação é gravada no início da semana
- * (`RoutineOccurrences`), não no dia em que o bloco ocorreu. Filtrar por dia da
- * semana ou por data compararia sempre com o domingo — a conexão nunca contaria.
- * Semanal, portanto, vale a semana inteira: só `all` faz sentido.
+ * Em rotina **semanal** a conexão conta todas as ocorrências da semana (a chave de
+ * cada uma é o próprio dia), então restringir por dia da semana não acrescenta nada
+ * ao que o bloco já restringe — e mudaria o significado de conexões antigas. Continua
+ * valendo `all`; os chips ficam escondidos no editor.
  */
 fun dayFilterFor(weekly: Boolean, weekday: Int?, dateIso: String?): String = when {
     weekly -> Connection.ALL_DAYS

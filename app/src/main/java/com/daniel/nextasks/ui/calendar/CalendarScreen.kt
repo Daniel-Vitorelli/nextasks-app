@@ -607,7 +607,9 @@ fun CalendarScreen(
 
     editingEvent?.let { event ->
         val routine = routines.firstOrNull { it.id == event.routineId }
-        val block = event.toEditableBlock()
+        // O bloco de origem manda nos dias da semana; só cai no evento se ele sumiu.
+        val origin = routine?.blocks?.firstOrNull { it.id == event.blockId }
+        val block = event.toEditableBlock(origin)
         if (routine != null && block != null) {
             val date = event.start.toLocalDate()
             BlockFormDialog(

@@ -57,7 +57,7 @@ data class CalendarEvent(
     val confirmation: EventConfirmation = EventConfirmation.None,
     /** Escala da nota quando a confirmação é Score. */
     val scoreMax: Int = 5,
-    /** Dia (rotina diária) ou domingo da semana (rotina semanal) da conclusão. */
+    /** Dia da ocorrência — é a chave da conclusão, em rotina diária e semanal. */
     val completionPeriodStart: LocalDate? = null,
     /** A ocorrência foi alterada/excluída só neste dia (exceção da rotina). */
     val isOverridden: Boolean = false,
