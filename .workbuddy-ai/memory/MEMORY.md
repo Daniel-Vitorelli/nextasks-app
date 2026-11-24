@@ -31,7 +31,7 @@ lembrado de imediato, sem abrir o repositório.
   lido pelo `NexTasksApp`), não por tela.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **144 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **162 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
@@ -45,6 +45,9 @@ lembrado de imediato, sem abrir o repositório.
 - **Unidade de avaliação** ≠ chave: o "100%" e o XP de `routine:dayFull` contam **dia** na
   diária e **semana** na semanal, e a semana só fecha com todas as ocorrências confirmadas
   (`RoutinePeriods.kt`).
+- **Imprevisto** (v3.50) é um evento (`kind = Unforeseen`): suspende a rotina no período,
+  exige o texto do que houve e **não penaliza** — a ocorrência suspensa sai da exigência do
+  dia/semana e a sequência pausa em vez de quebrar (`Suspensions.kt`).
 - Bloco→hábito usa o **dia da ocorrência** (que é o próprio período recebido), não "hoje"; a
   marcação passa por `ensureCount` e não soma de novo.
 - **XP negativo é lançamento** (recaída −15); só `0` remove.

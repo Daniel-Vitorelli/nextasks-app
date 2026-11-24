@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.49`, `versionCode 70` |
-| Tamanho | ~96 arquivos Kotlin em `main`, ~21.500 linhas, 747 strings |
+| Versão atual | `versionName 3.50`, `versionCode 71` |
+| Tamanho | ~95 arquivos Kotlin em `main`, ~20.350 linhas, 757 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 144 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 162 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -85,6 +85,7 @@ ui/      telas Compose (uma por seção) + componentes + tema
 | `RoutineBlockDays.kt` | Em quais dias da semana o bloco acontece (`scheduledWeekdays`) |
 | `RoutinePeriods.kt` | Unidade da rotina (dia/semana) e "quando ela está completa" |
 | `CompletionKeys.kt` | Migra a chave de conclusão antiga (domingo) para o dia da ocorrência |
+| `Suspensions.kt` | O que os eventos suspendem: dias inteiros, janelas e se o bloco cai dentro |
 | `TaskCompletion.kt` | Conclusão de tarefa **com** a cascata das sub-tarefas |
 | `Connection*.kt` | Modelo, repositório, motor e sugestões de conexão |
 | `Gamification*.kt` | XP, níveis, ranks, catálogo de conquistas e retrato de estatísticas |
@@ -191,8 +192,9 @@ HabitCompletion(habitId, date, count)
 ### AgendaEvent / BlockOverride / ExtraBlock
 
 ```kotlin
-AgendaEvent(id, title, description, startDate, endDate, startTime, endTime, color, suspension)
+AgendaEvent(id, title, description, startDate, endDate, startTime, endTime, color, suspension, kind)
   suspension: None | WholeDays | WithinHours
+  kind:       Planned | Unforeseen    // imprevisto: suspende sempre e exige o texto
 BlockOverride(routineId, blockId, date, deleted, block?)   // exceção de um dia
 ExtraBlock(id, date, routineId?, title, description, startTime, endTime, isAllDay, color,
            confirmation, scoreMax)                          // bloco avulso de um dia
@@ -201,6 +203,9 @@ ExtraBlock(id, date, routineId?, title, description, startTime, endTime, isAllDa
 - `AgendaEvent` é multi-dia e pode **suspender** a rotina no período.
 - `BlockOverride` edita ou apaga um bloco **sem tocar na rotina**.
 - `ExtraBlock` existe só naquele dia.
+- **Imprevisto** (`kind = Unforeseen`) é um `AgendaEvent` comum, criado no próprio
+  calendário: não existe tela nova. O texto que explica o que houve é obrigatório (é o
+  `title`), a suspensão é automática e ele **não penaliza** — ver §7.10.
 
 ### Connection
 
@@ -360,6 +365,28 @@ Excluir rotina, bloco, tarefa, sub-tarefa ou hábito também apaga o que apontav
 ele: conclusões, exceções do dia e conexões. Sem isso o `connections.json` acumula
 órfãs que só somem no próximo start.
 
+### 7.10 Imprevisto — suspensão sem penalidade
+
+Um imprevisto é um evento (`kind = Unforeseen`) que **sempre** suspende a rotina no
+período, no horário dele: [effectiveSuspension] resolve os dois casos porque a fatia de
+um evento de dia inteiro cobre o dia todo. O formulário esconde os chips de suspensão e
+exige o texto que explica o que houve (o `title`; sem tamanho mínimo).
+
+Suspender é **esconder a ocorrência**, não marcá-la como perdida. A conta mora em
+`data/Suspensions.kt` e alimenta todos os consumidores:
+
+- calendário e Home: o bloco suspenso não aparece;
+- conexões: sem confirmação, o motor não dispara nada;
+- gamificação: a ocorrência suspensa sai da exigência da unidade
+  (`RoutinePeriods.completePeriodStarts`), então o dia/semana fecha com o que dava para
+  fazer; unidade **toda** suspensa não fecha (não há prêmio por não fazer nada) — a não
+  ser que o usuário já tivesse confirmado tudo antes do imprevisto, porque aí o dia foi
+  cumprido e a suspensão não pode apagar o feito (`dueBlocksConfirmed`);
+- sequência (Home e gamificação): a unidade suspensa **pausa** a corrida em vez de
+  zerá-la — não soma nem quebra.
+
+Só o que a rotina prevê é suspenso: bloco avulso ([ExtraBlock]) não entra na conta.
+
 ---
 
 ## 8. Design system
@@ -503,6 +530,7 @@ v3.46 animações de entrada, trilha do rank, contagem dos números e halo na ce
 v3.47 trilha do rank volta a preencher só os vãos entre os brasões ·
 v3.48 corrige o empilhamento da aba de conquistas (TabContent virou Column),
 formata milhares e mostra o XP de cada tier em "Como ganhar" · v3.49 bloco semanal em
-vários dias com confirmação por dia, migração da chave e chips com o nome do dia.
+vários dias com confirmação por dia, migração da chave e chips com o nome do dia ·
+v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

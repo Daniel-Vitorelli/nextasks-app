@@ -37,6 +37,7 @@ class GamificationStatsTest {
         habitCompletions: List<HabitCompletion> = emptyList(),
         connections: List<Connection> = emptyList(),
         xpEvents: List<XpEvent> = emptyList(),
+        agendaEvents: List<AgendaEvent> = emptyList(),
     ) = gamificationStats(
         routines = routines,
         completions = completions,
@@ -47,6 +48,7 @@ class GamificationStatsTest {
         connections = connections,
         xpEvents = xpEvents,
         today = today,
+        agendaEvents = agendaEvents,
     )
 
     @Test
@@ -92,6 +94,47 @@ class GamificationStatsTest {
         val completions = listOf(Completion("b1", "2026-11-22", "true"))
 
         assertEquals(0, stats(routines = listOf(r), completions = completions).blocksConfirmed)
+    }
+
+    @Test
+    fun `imprevisto em um dia do bloco semanal nao impede a semana`() {
+        // Semana de 15/11: bloco na segunda (16) e na quarta (18). Quarta teve
+        // imprevisto, então confirmar a segunda fecha a semana.
+        val r = routine(
+            listOf(
+                block("b1", EventConfirmation.Checklist).copy(weekday = 1, weekdays = listOf(1, 3)),
+            ),
+        ).copy(frequency = RoutineFrequency.Weekly)
+        val imprevisto = AgendaEvent(
+            title = "imprevisto",
+            startDate = "2026-11-18",
+            endDate = "2026-11-18",
+            kind = EventKind.Unforeseen,
+        )
+
+        val s = stats(
+            routines = listOf(r),
+            completions = listOf(Completion("b1", "2026-11-16", "true")),
+            agendaEvents = listOf(imprevisto),
+        )
+
+        assertEquals(1, s.days100)
+    }
+
+    @Test
+    fun `sem o imprevisto a semana multi-dia nao fecha pela metade`() {
+        val r = routine(
+            listOf(
+                block("b1", EventConfirmation.Checklist).copy(weekday = 1, weekdays = listOf(1, 3)),
+            ),
+        ).copy(frequency = RoutineFrequency.Weekly)
+
+        val s = stats(
+            routines = listOf(r),
+            completions = listOf(Completion("b1", "2026-11-16", "true")),
+        )
+
+        assertEquals(0, s.days100)
     }
 
     @Test

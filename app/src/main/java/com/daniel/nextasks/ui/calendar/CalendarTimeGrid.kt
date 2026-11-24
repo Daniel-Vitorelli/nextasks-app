@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,10 +41,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.daniel.nextasks.R
 import com.daniel.nextasks.ui.components.rememberClockTime
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -198,18 +201,33 @@ private fun AllDayRow(days: List<LocalDate>, allDayEvents: List<CalendarEvent>) 
                     .filter { it.start.toLocalDate() == day }
                     .forEach { event ->
                         val background = event.color.accent()
-                        Text(
-                            text = event.title,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (background.luminance() > 0.55f) Color.Black else Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        val contentColor = if (background.luminance() > 0.55f) Color.Black else Color.White
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(background)
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
-                        )
+                        ) {
+                            if (event.isUnforeseen) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_unforeseen),
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(11.dp),
+                                )
+                                Spacer(Modifier.width(2.dp))
+                            }
+                            Text(
+                                text = event.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                        }
                     }
             }
         }
@@ -444,14 +462,25 @@ private fun EventBlock(event: CalendarEvent, hourHeight: Dp, onClick: () -> Unit
             .background(background)
             .padding(horizontal = 3.dp, vertical = 2.dp),
     ) {
-        Text(
-            text = event.title,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            color = contentColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(verticalAlignment = Alignment.Top) {
+            if (event.isUnforeseen) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_unforeseen),
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(2.dp))
+            }
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = contentColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (height >= 34.dp) {
             Text(
                 text = "${event.start.toLocalTime().hourMinute()} – ${event.end.toLocalTime().hourMinute()}",

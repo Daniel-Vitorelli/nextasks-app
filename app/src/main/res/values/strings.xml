@@ -63,6 +63,7 @@
     <string name="event_new">Novo evento</string>
     <string name="menu_new_block">Bloco avulso</string>
     <string name="menu_new_event">Evento</string>
+    <string name="menu_new_unforeseen">Imprevisto</string>
     <string name="event_edit">Editar evento</string>
     <string name="event_start">Início</string>
     <string name="event_end">Término</string>
@@ -78,6 +79,15 @@
     <string name="event_time_invalid">O término precisa ser depois do início.</string>
     <string name="event_delete">Excluir evento</string>
     <string name="event_edit_action">Editar evento</string>
+    <string name="event_kind_planned">Evento</string>
+    <string name="event_kind_unforeseen">Imprevisto</string>
+    <string name="event_new_unforeseen">Novo imprevisto</string>
+    <string name="event_edit_unforeseen">Editar imprevisto</string>
+    <string name="event_unforeseen_title">O que aconteceu?</string>
+    <string name="event_unforeseen_placeholder">Ex.: levar o carro ao mecânico</string>
+    <string name="event_unforeseen_required">Descreva o imprevisto para salvar.</string>
+    <string name="event_unforeseen_note">A rotina fica suspensa nesse período, sem penalidade.</string>
+    <string name="unforeseen_label">Imprevisto</string>
     <string name="extra_notice">Bloco avulso em %1$s. Não entra na rotina.</string>
     <string name="extra_link_label">Vincular à rotina</string>
     <string name="extra_link_none">Independente</string>

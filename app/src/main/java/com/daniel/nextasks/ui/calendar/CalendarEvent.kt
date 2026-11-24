@@ -67,4 +67,6 @@ data class CalendarEvent(
     val isEvent: Boolean = false,
     /** Id do evento de origem, quando [isEvent]. */
     val eventId: String? = null,
+    /** O evento de origem é um imprevisto (suspende a rotina no período). */
+    val isUnforeseen: Boolean = false,
 )

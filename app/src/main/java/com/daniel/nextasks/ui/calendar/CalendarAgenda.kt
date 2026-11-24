@@ -218,17 +218,28 @@ private fun EventRow(
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = if (done) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                textDecoration = if (done) TextDecoration.LineThrough else null,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (event.isUnforeseen) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_unforeseen),
+                        contentDescription = stringResource(R.string.unforeseen_label),
+                        tint = event.color.accent(),
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (done) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    textDecoration = if (done) TextDecoration.LineThrough else null,
+                )
+            }
             if (!event.location.isNullOrBlank()) {
                 Spacer(Modifier.height(2.dp))
                 Text(

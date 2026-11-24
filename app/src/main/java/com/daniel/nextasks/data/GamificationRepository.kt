@@ -129,6 +129,8 @@ class GamificationEngine(
     private val habitRepository: HabitRepository,
     private val connectionRepository: ConnectionRepository,
     private val settingsRepository: SettingsRepository,
+    /** Eventos da agenda: um imprevisto suspende a ocorrência e não pode penalizar. */
+    private val eventRepository: EventRepository,
 ) {
     /**
      * Fila de conquistas recém-desbloqueadas.
@@ -158,6 +160,7 @@ class GamificationEngine(
         connections = connectionRepository.connections.first(),
         xpEvents = xpRepository.all(),
         today = today,
+        agendaEvents = eventRepository.events.first(),
     )
 
     /**
@@ -214,15 +217,17 @@ class GamificationEngine(
 
         // Unidade 100%: um bônus por dia (rotina diária) ou semana (semanal) em que
         // **todas** as ocorrências confirmáveis fecharam. Numa rotina semanal com o
-        // bloco em Seg/Qua/Sex a semana só fecha com as três confirmadas.
+        // bloco em Seg/Qua/Sex a semana só fecha com as três confirmadas. O que um
+        // imprevisto suspendeu sai da conta: não dá para exigir o que não aconteceu.
         val active = routines.firstOrNull { it.isActive }
         if (active != null) {
+            val suspensions = eventRepository.events.first().suspensions()
             val byId = active.blocks.associateBy { it.id }
             val valid = completions.mapNotNull { completion ->
                 val block = byId[completion.blockId] ?: return@mapNotNull null
                 if (completionCounts(block.confirmation, completion.value)) completion else null
             }
-            active.completePeriodStarts(valid).forEach { unitStart ->
+            active.completePeriodStarts(valid, suspensions).forEach { unitStart ->
                 desired += XpEntry(
                     XpKind.RoutineDayFull,
                     XpAmounts.ROUTINE_DAY_FULL,

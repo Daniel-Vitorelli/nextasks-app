@@ -39,6 +39,13 @@ class RoutinePeriodsTest {
     private fun done(blockId: String = "b1", day: LocalDate = terca, value: String = "true") =
         Completion(blockId = blockId, periodStart = day.toString(), value = value)
 
+    private fun unforeseen(day: LocalDate) = AgendaEvent(
+        title = "imprevisto",
+        startDate = day.toString(),
+        endDate = day.toString(),
+        kind = EventKind.Unforeseen,
+    )
+
     @Test
     fun `rotina diaria fecha o dia quando todos os blocos confirmam`() {
         val routine = routine(listOf(block("b1"), block("b2")))
@@ -110,5 +117,60 @@ class RoutinePeriodsTest {
         val routine = routine(listOf(block("b1")))
 
         assertTrue(routine.completePeriodStarts(listOf(done("outro"))).isEmpty())
+    }
+
+    @Test
+    fun `ocorrencia suspensa por imprevisto nao e exigida`() {
+        // Bloco na segunda e na quarta; a quarta teve imprevisto. Confirmar a segunda
+        // basta para a semana fechar — cobrar a quarta seria penalizar o usuário.
+        val routine = routine(listOf(block(weekdays = listOf(1, 3))), RoutineFrequency.Weekly)
+        val segunda = LocalDate.of(2026, 11, 23)
+        val quarta = LocalDate.of(2026, 11, 25)
+        val suspensions = listOf(unforeseen(quarta)).suspensions()
+
+        assertEquals(
+            listOf(domingoDaSemana),
+            routine.completePeriodStarts(listOf(done(day = segunda)), suspensions),
+        )
+        // A semana não está "suspensa": sobrou a segunda para cumprir.
+        assertTrue(routine.suspendedPeriodStarts(suspensions).isEmpty())
+    }
+
+    @Test
+    fun `semana inteira suspensa fica fora da conta e pausa a sequencia`() {
+        val routine = routine(listOf(block(weekday = 1)), RoutineFrequency.Weekly)
+        val segunda = LocalDate.of(2026, 11, 23)
+        val suspensions = listOf(unforeseen(segunda)).suspensions()
+
+        assertTrue(routine.completePeriodStarts(emptyList(), suspensions).isEmpty())
+        assertEquals(listOf(domingoDaSemana), routine.suspendedPeriodStarts(suspensions))
+    }
+
+    @Test
+    fun `sem o imprevisto a semana multi-dia continua exigindo os dois dias`() {
+        val routine = routine(listOf(block(weekdays = listOf(1, 3))), RoutineFrequency.Weekly)
+        val segunda = LocalDate.of(2026, 11, 23)
+
+        assertTrue(routine.completePeriodStarts(listOf(done(day = segunda))).isEmpty())
+    }
+
+    @Test
+    fun `dia todo suspenso nao vira dia completo`() {
+        val routine = routine(listOf(block()))
+        val suspensions = listOf(unforeseen(terca)).suspensions()
+
+        assertTrue(routine.occurrencesIn(terca, suspensions).isEmpty())
+        assertTrue(routine.dayIsFullySuspended(terca, suspensions))
+        assertTrue(routine.completePeriodStarts(emptyList(), suspensions).isEmpty())
+    }
+
+    @Test
+    fun `imprevisto registrado depois nao apaga o dia ja cumprido`() {
+        // O dia foi confirmado e só então o imprevisto apareceu: continua completo,
+        // senão a suspensão apagaria trabalho feito.
+        val routine = routine(listOf(block()))
+        val suspensions = listOf(unforeseen(terca)).suspensions()
+
+        assertEquals(listOf(terca), routine.completePeriodStarts(listOf(done()), suspensions))
     }
 }

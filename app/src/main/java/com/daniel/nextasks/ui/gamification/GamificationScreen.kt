@@ -83,6 +83,7 @@ import com.daniel.nextasks.data.AchievementTier
 import com.daniel.nextasks.data.AchievementUnlock
 import com.daniel.nextasks.data.CompletionRepository
 import com.daniel.nextasks.data.ConnectionRepository
+import com.daniel.nextasks.data.EventRepository
 import com.daniel.nextasks.data.GamificationEngine
 import com.daniel.nextasks.data.GamificationStat
 import com.daniel.nextasks.data.GamificationStats
@@ -138,6 +139,8 @@ fun GamificationScreen(
     subtaskRepository: SubtaskRepository,
     habitRepository: HabitRepository,
     connectionRepository: ConnectionRepository,
+    /** Eventos da agenda: um imprevisto suspende a rotina e não pode penalizar. */
+    eventRepository: EventRepository,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -150,9 +153,13 @@ fun GamificationScreen(
     val habits by habitRepository.habitList.collectAsState(initial = emptyList())
     val habitCompletions by habitRepository.completionList.collectAsState(initial = emptyList())
     val connections by connectionRepository.connections.collectAsState(initial = emptyList())
+    val agendaEvents by eventRepository.events.collectAsState(initial = emptyList())
 
     val today = rememberToday()
-    val stats = remember(routines, completions, tasks, subtasks, habits, habitCompletions, connections, events) {
+    val stats = remember(
+        routines, completions, tasks, subtasks, habits, habitCompletions, connections, events,
+        agendaEvents,
+    ) {
         gamificationStats(
             routines = routines,
             completions = completions,
@@ -163,6 +170,7 @@ fun GamificationScreen(
             connections = connections,
             xpEvents = events,
             today = today,
+            agendaEvents = agendaEvents,
         )
     }
 

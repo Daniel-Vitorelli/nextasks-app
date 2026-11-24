@@ -55,6 +55,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.AgendaEvent
 import com.daniel.nextasks.data.EventColorKey
+import com.daniel.nextasks.data.EventKind
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.RoutineBlockDays
@@ -75,6 +76,10 @@ import java.time.ZoneOffset
  * As pontas são independentes: o dia de início pode ser dia inteiro ou ter hora,
  * e o dia de término idem. Em evento de um dia só, um único interruptor controla
  * as duas pontas.
+ *
+ * O mesmo formulário cria o **imprevisto** ([EventKind.Unforeseen]): o texto que
+ * explica o que houve é obrigatório (é o título) e a suspensão da rotina é
+ * automática — não há o que escolher.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,9 +89,12 @@ fun EventFormDialog(
     routine: Routine?,
     onDismiss: () -> Unit,
     onSave: (AgendaEvent) -> Unit,
+    /** Espécie do evento novo; ignorado ao editar (vale a do registro). */
+    defaultKind: EventKind = EventKind.Planned,
 ) {
     var title by rememberSaveable { mutableStateOf(initial?.title.orEmpty()) }
     var description by rememberSaveable { mutableStateOf(initial?.description.orEmpty()) }
+    var kind by rememberSaveable { mutableStateOf(initial?.kind ?: defaultKind) }
     var startDate by rememberSaveable {
         mutableStateOf(initial?.startDate ?: defaultDate.toString())
     }
@@ -97,19 +105,30 @@ fun EventFormDialog(
     var endAllDay by rememberSaveable { mutableStateOf(initial?.endTime == null) }
     var startTime by rememberSaveable { mutableStateOf(initial?.startTime ?: "09:00") }
     var endTime by rememberSaveable { mutableStateOf(initial?.endTime ?: "10:00") }
-    var color by rememberSaveable { mutableStateOf(initial?.color ?: EventColorKey.Blue) }
+    var color by rememberSaveable {
+        mutableStateOf(
+            initial?.color ?: if (defaultKind == EventKind.Unforeseen) {
+                EventColorKey.Orange
+            } else {
+                EventColorKey.Blue
+            },
+        )
+    }
     var suspension by rememberSaveable {
         mutableStateOf(initial?.suspension ?: SuspensionMode.None)
     }
     var pickerTarget by rememberSaveable { mutableIntStateOf(0) }
 
+    // O imprevisto suspende sempre: não escolhe modo, só o horário.
+    val unforeseen = kind == EventKind.Unforeseen
+    val appliedSuspension = if (unforeseen) SuspensionMode.WithinHours else suspension
     val singleDay = startDate == endDate
     val timeInvalid = singleDay && !startAllDay && !endAllDay &&
         (runCatching { LocalTime.parse(endTime) }.getOrNull() ?: LocalTime.MIN) <=
         (runCatching { LocalTime.parse(startTime) }.getOrNull() ?: LocalTime.MAX)
 
     val preview = remember(
-        startDate, endDate, startAllDay, endAllDay, startTime, endTime, suspension, routine,
+        startDate, endDate, startAllDay, endAllDay, startTime, endTime, suspension, kind, routine,
     ) {
         countSuspendedBlocks(
             routine = routine,
@@ -120,6 +139,7 @@ fun EventFormDialog(
                 startTime = if (startAllDay) null else startTime,
                 endTime = if (endAllDay) null else endTime,
                 suspension = suspension,
+                kind = kind,
             ),
         )
     }
@@ -144,7 +164,12 @@ fun EventFormDialog(
                     title = {
                         Text(
                             text = stringResource(
-                                if (initial == null) R.string.event_new else R.string.event_edit,
+                                when {
+                                    unforeseen && initial == null -> R.string.event_new_unforeseen
+                                    unforeseen -> R.string.event_edit_unforeseen
+                                    initial == null -> R.string.event_new
+                                    else -> R.string.event_edit
+                                },
                             ),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
@@ -176,7 +201,12 @@ fun EventFormDialog(
                                         startTime = if (startAllDay) null else startTime,
                                         endTime = if (endAllDay) null else endTime,
                                         color = color,
-                                        suspension = suspension,
+                                        suspension = if (unforeseen) {
+                                            SuspensionMode.WithinHours
+                                        } else {
+                                            suspension
+                                        },
+                                        kind = kind,
                                     ),
                                 )
                             },
@@ -198,23 +228,68 @@ fun EventFormDialog(
                 ) {
                     Spacer(Modifier.height(8.dp))
 
+                    // Mesmo formulário para as duas coisas: o imprevisto não é outra
+                    // tela, é um evento que suspende e exige explicação.
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            EventKind.Planned to R.string.event_kind_planned,
+                            EventKind.Unforeseen to R.string.event_kind_unforeseen,
+                        ).forEach { (option, label) ->
+                            FilterChip(
+                                selected = kind == option,
+                                onClick = { kind = option },
+                                label = { Text(stringResource(label)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary
+                                        .copy(alpha = 0.16f),
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text(stringResource(R.string.task_title_label)) },
-                        singleLine = true,
+                        label = {
+                            Text(
+                                stringResource(
+                                    if (unforeseen) {
+                                        R.string.event_unforeseen_title
+                                    } else {
+                                        R.string.task_title_label
+                                    },
+                                ),
+                            )
+                        },
+                        placeholder = if (unforeseen) {
+                            { Text(stringResource(R.string.event_unforeseen_placeholder)) }
+                        } else {
+                            null
+                        },
+                        singleLine = !unforeseen,
+                        minLines = if (unforeseen) 2 else 1,
+                        maxLines = if (unforeseen) 4 else 1,
+                        supportingText = if (unforeseen && title.isBlank()) {
+                            { Text(stringResource(R.string.event_unforeseen_required)) }
+                        } else {
+                            null
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     )
 
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text(stringResource(R.string.task_description_label)) },
-                        minLines = 2,
-                        maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (!unforeseen) {
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = description,
+                            onValueChange = { description = it },
+                            label = { Text(stringResource(R.string.task_description_label)) },
+                            minLines = 2,
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
 
                     Spacer(Modifier.height(20.dp))
                     Text(
@@ -312,35 +387,45 @@ fun EventFormDialog(
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    Text(
-                        text = stringResource(R.string.event_suspension),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(
-                            SuspensionMode.None to R.string.suspension_none,
-                            SuspensionMode.WholeDays to R.string.suspension_days,
-                            SuspensionMode.WithinHours to R.string.suspension_hours,
-                        ).forEach { (mode, label) ->
-                            FilterChip(
-                                selected = suspension == mode,
-                                onClick = { suspension = mode },
-                                label = { Text(stringResource(label)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary
-                                        .copy(alpha = 0.16f),
-                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
+                    if (unforeseen) {
+                        // Suspensão implícita: o usuário não escolhe, só informa o período.
+                        Text(
+                            text = stringResource(R.string.event_unforeseen_note),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    } else {
+                        Text(
+                            text = stringResource(R.string.event_suspension),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                SuspensionMode.None to R.string.suspension_none,
+                                SuspensionMode.WholeDays to R.string.suspension_days,
+                                SuspensionMode.WithinHours to R.string.suspension_hours,
+                            ).forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = suspension == mode,
+                                    onClick = { suspension = mode },
+                                    label = { Text(stringResource(label)) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary
+                                            .copy(alpha = 0.16f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            }
                         }
+                        Spacer(Modifier.height(10.dp))
                     }
 
-                    Spacer(Modifier.height(10.dp))
                     Text(
                         text = when {
-                            suspension == SuspensionMode.None ->
+                            appliedSuspension == SuspensionMode.None ->
                                 stringResource(R.string.event_suspension_preview_none)
 
                             preview == 1 ->
@@ -349,7 +434,7 @@ fun EventFormDialog(
                             else -> stringResource(R.string.event_suspension_preview, preview)
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (preview > 0 && suspension != SuspensionMode.None) {
+                        color = if (preview > 0 && appliedSuspension != SuspensionMode.None) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -448,10 +533,11 @@ private fun SectionRow(
 /**
  * Quantos blocos da rotina o evento esconderia — o número mostrado no formulário.
  *
- * Conta bloco a bloco, respeitando o dia da semana em rotinas semanais.
+ * Conta bloco a bloco, respeitando o dia da semana em rotinas semanais e a suspensão
+ * efetiva do evento (o imprevisto suspende mesmo sem o usuário escolher).
  */
 private fun countSuspendedBlocks(routine: Routine?, draft: AgendaEvent): Int {
-    if (routine == null || draft.suspension == SuspensionMode.None) return 0
+    if (routine == null || draft.effectiveSuspension == SuspensionMode.None) return 0
     if (draft.endDate < draft.startDate) return 0
 
     val segments = draft.segments()
@@ -466,7 +552,7 @@ private fun countSuspendedBlocks(routine: Routine?, draft: AgendaEvent): Int {
             ) {
                 continue
             }
-            when (draft.suspension) {
+            when (draft.effectiveSuspension) {
                 SuspensionMode.None -> Unit
                 SuspensionMode.WholeDays -> count += 1
                 SuspensionMode.WithinHours -> {

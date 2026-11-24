@@ -6,6 +6,9 @@ import com.daniel.nextasks.data.Completion
 import com.daniel.nextasks.data.ExtraBlock
 import com.daniel.nextasks.data.EventConfirmation
 import com.daniel.nextasks.data.Routine
+import com.daniel.nextasks.data.dayIsFullySuspended
+import com.daniel.nextasks.data.dueBlocksConfirmed
+import com.daniel.nextasks.data.suspensions
 import com.daniel.nextasks.ui.calendar.CalendarEvent
 import com.daniel.nextasks.ui.calendar.routineOccurrences
 import java.time.LocalDate
@@ -112,6 +115,7 @@ fun routineStats(
 ): RoutineStats {
     if (routine == null) return RoutineStats()
 
+    val suspensions = agendaEvents.suspensions()
     val days = (STREAK_DAYS - 1 downTo 0).map { today.minusDays(it.toLong()) }
     val series = progressSeries(routine, completions, days, overrides, extras, agendaEvents)
     if (series.none { it.confirmable > 0 }) return RoutineStats()
@@ -119,8 +123,8 @@ fun routineStats(
     var currentStreak = 0
     var longestStreak = 0
     var run = 0
-    var previous: LocalDate? = null
     val fullDays = mutableSetOf<LocalDate>()
+    val suspendedDays = mutableSetOf<LocalDate>()
 
     var todayPercent: Int? = null
     var todayConfirmable = 0
@@ -134,29 +138,38 @@ fun routineStats(
             todayDone = point.done
         }
 
-        val complete = point.percent == 100
-        if (complete) {
+        // Imprevisto que tomou o dia: a rotina foi suspensa, então o dia **pausa** a
+        // sequência em vez de quebrá-la. Não é dia completo (não houve o que cumprir),
+        // mas também não é dia perdido.
+        if (point.confirmable == 0 && routine.dayIsFullySuspended(day, suspensions)) {
+            suspendedDays += day
+            // Imprevisto registrado depois: o que já estava cumprido continua valendo.
+            if (routine.dueBlocksConfirmed(day, completions)) {
+                fullDays += day
+                run += 1
+                if (run > longestStreak) longestStreak = run
+            }
+            continue
+        }
+
+        // A corrida conta dias **ativos** consecutivos: o dia suspenso não soma nem
+        // zera, então ontem suspenso + hoje completo continua a sequência.
+        if (point.percent == 100) {
             fullDays += day
-            run = if (previous != null && previous.plusDays(1) == day) run + 1 else 1
+            run += 1
             if (run > longestStreak) longestStreak = run
-            previous = day
         } else {
             run = 0
-            previous = null
         }
     }
 
-    // A sequência atual só vale se o último dia completo foi hoje ou ontem:
-    // hoje ainda incompleto não quebra a sequência, mas dois dias sem fechar quebram.
-    val lastFull = fullDays.maxOrNull()
-    if (lastFull != null) {
-        if (lastFull == today || lastFull == today.minusDays(1)) {
-            var cursor: LocalDate = lastFull
-            while (cursor in fullDays) {
-                currentStreak += 1
-                cursor = cursor.minusDays(1)
-            }
-        }
+    // A sequência atual conta de trás para frente a partir de hoje: dia suspenso é
+    // pulado (pausa), dia completo conta e qualquer outro dia encerra a corrida. Hoje
+    // ainda incompleto não quebra — a contagem começa em ontem.
+    var cursor = if (today in fullDays) today else today.minusDays(1)
+    while (cursor in fullDays || cursor in suspendedDays) {
+        if (cursor in fullDays) currentStreak += 1
+        cursor = cursor.minusDays(1)
     }
 
     return RoutineStats(

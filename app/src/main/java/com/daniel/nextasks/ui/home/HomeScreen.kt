@@ -58,6 +58,7 @@ import com.daniel.nextasks.R
 import com.daniel.nextasks.data.BlockOverrideRepository
 import com.daniel.nextasks.data.CompletionRepository
 import com.daniel.nextasks.data.AgendaEvent
+import com.daniel.nextasks.data.EventKind
 import com.daniel.nextasks.data.EventRepository
 import com.daniel.nextasks.data.Habit
 import com.daniel.nextasks.data.HabitFrequency
@@ -1230,29 +1231,44 @@ private fun HomeEventRow(event: AgendaEvent, today: LocalDate) {
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (event.kind == EventKind.Unforeseen) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_unforeseen),
+                            contentDescription = stringResource(R.string.unforeseen_label),
+                            tint = accent,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        text = event.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     text = timeLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (event.suspension != SuspensionMode.None) {
+            val suspensionLabel = when {
+                // Imprevisto suspende a rotina inteira no período: o aviso não fala
+                // em "horário" para não sugerir que dá para fazer o bloco.
+                event.kind == EventKind.Unforeseen -> R.string.home_event_suspended
+                event.effectiveSuspension == SuspensionMode.WholeDays -> R.string.home_event_suspended
+                event.effectiveSuspension == SuspensionMode.WithinHours ->
+                    R.string.home_event_suspended_hours
+
+                else -> null
+            }
+            if (suspensionLabel != null) {
                 Text(
-                    text = stringResource(
-                        if (event.suspension == SuspensionMode.WholeDays) {
-                            R.string.home_event_suspended
-                        } else {
-                            R.string.home_event_suspended_hours
-                        },
-                    ),
+                    text = stringResource(suspensionLabel),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

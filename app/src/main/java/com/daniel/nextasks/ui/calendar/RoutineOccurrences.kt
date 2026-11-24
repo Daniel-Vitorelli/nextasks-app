@@ -3,16 +3,18 @@ package com.daniel.nextasks.ui.calendar
 import com.daniel.nextasks.data.AgendaEvent
 import com.daniel.nextasks.data.BlockOverride
 import com.daniel.nextasks.data.EventColorKey
+import com.daniel.nextasks.data.EventKind
 import com.daniel.nextasks.data.ExtraBlock
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
-import com.daniel.nextasks.data.SuspensionMode
-import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.RoutineBlockDays
+import com.daniel.nextasks.data.RoutineFrequency
 import com.daniel.nextasks.data.coversDay
+import com.daniel.nextasks.data.isSuspendedOn
 import com.daniel.nextasks.data.parseIsoDate
-import com.daniel.nextasks.data.parseIsoTime
 import com.daniel.nextasks.data.scheduledWeekdays
+import com.daniel.nextasks.data.suspensions
+import com.daniel.nextasks.data.timesOn
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -50,17 +52,10 @@ fun routineOccurrences(
     val events = mutableListOf<CalendarEvent>()
     val overrideByKey = overrides.associateBy { it.key }
 
-    // Suspensão da rotina: dias inteiros e janelas de horário dos eventos.
-    val suspendedDays = mutableSetOf<LocalDate>()
-    val suspendedWindows = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
-    for (event in agendaEvents) {
-        when (event.suspension) {
-            SuspensionMode.None -> Unit
-            SuspensionMode.WholeDays -> suspendedDays += event.days()
-            SuspensionMode.WithinHours -> suspendedWindows += event.segments()
-                .map { it.start to it.end }
-        }
-    }
+    // Suspensão da rotina: um imprevisto suspende sempre; o evento planejado, só se
+    // o usuário pediu. A conta fica em `data/` porque a Home e a gamificação usam a
+    // mesma resposta.
+    val suspensions = agendaEvents.suspensions()
 
     for (routine in routines) {
         if (!routine.isActive) continue
@@ -82,11 +77,9 @@ fun routineOccurrences(
 
                 val (start, end) = resolveTimes(day, block) ?: continue
 
-                // Rotina suspensa pelo evento: some do calendário e da Home.
-                if (day in suspendedDays) continue
-                if (suspendedWindows.any { it.first.isBefore(end) && start.isBefore(it.second) }) {
-                    continue
-                }
+                // Suspensa por um evento: some do calendário e da Home, e o dia não
+                // passa a contar como perdido (ver `RoutinePeriods`).
+                if (block.isSuspendedOn(day, suspensions)) continue
 
                 events += CalendarEvent(
                     id = "${block.id}:$day",
@@ -156,6 +149,8 @@ fun routineOccurrences(
                 description = event.description,
                 isEvent = true,
                 eventId = event.id,
+                // O imprevisto aparece marcado e sabe que suspendeu a rotina.
+                isUnforeseen = event.kind == EventKind.Unforeseen,
             )
         }
     }
@@ -163,18 +158,13 @@ fun routineOccurrences(
     return events.sortedBy { it.start }
 }
 
-/** Horário de início/fim do bloco no dia, tratando dia inteiro e virada de meia-noite. */
-internal fun resolveTimes(day: LocalDate, block: RoutineBlock): Pair<LocalDateTime, LocalDateTime>? {
-    if (block.isAllDay) {
-        return day.atStartOfDay() to day.plusDays(1).atStartOfDay()
-    }
-    val startTime = parseIsoTime(block.startTime) ?: return null
-    val endTime = parseIsoTime(block.endTime) ?: return null
-    val start = LocalDateTime.of(day, startTime)
-    val sameDayEnd = LocalDateTime.of(day, endTime)
-    val end = if (sameDayEnd.isAfter(start)) sameDayEnd else sameDayEnd.plusDays(1)
-    return start to end
-}
+/**
+ * Horário de início/fim do bloco no dia, tratando dia inteiro e virada de meia-noite.
+ *
+ * A conta mora em `data/` ([RoutineBlock.timesOn]) porque a suspensão precisa dela.
+ */
+internal fun resolveTimes(day: LocalDate, block: RoutineBlock): Pair<LocalDateTime, LocalDateTime>? =
+    block.timesOn(day)
 
 private val HhMm: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 

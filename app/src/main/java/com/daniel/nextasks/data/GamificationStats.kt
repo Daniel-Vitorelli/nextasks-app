@@ -88,9 +88,11 @@ fun gamificationStats(
     connections: List<Connection>,
     xpEvents: List<XpEvent>,
     today: LocalDate,
+    agendaEvents: List<AgendaEvent> = emptyList(),
 ): GamificationStats {
     val totalXp = xpEvents.sumOf { it.amount }
     val level = levelFromXp(totalXp)
+    val suspensions = agendaEvents.suspensions()
 
     // Blocos: só conta o que o bloco permite confirmar.
     val blocksById = routines.flatMap { it.blocks }.associateBy { it.id }
@@ -107,7 +109,8 @@ fun gamificationStats(
 
     // Unidade completa da rotina ativa: o dia na diária, a semana na semanal. Em
     // rotina semanal com o bloco em Seg/Qua/Sex, a semana só fecha quando as três
-    // ocorrências foram confirmadas — cada uma é independente.
+    // ocorrências dão para cumprir — cada uma é independente. O que um imprevisto
+    // suspendeu sai da exigência: o usuário não é penalizado pelo que não podia fazer.
     val active = routines.firstOrNull { it.isActive }
     val activeCreated = active?.createdOnDate()
     var days100 = 0
@@ -115,13 +118,24 @@ fun gamificationStats(
     var currentRoutineStreak = 0
     if (active != null && activeCreated != null && active.blocks.isNotEmpty()) {
         val unitDays = if (active.frequency == RoutineFrequency.Weekly) 7L else 1L
-        val createdUnit = activeCreated.toEpochDay() / unitDays
-        val units = active.completePeriodStarts(valid)
-            .map { (it.toEpochDay() / unitDays).toInt() }
-            .filter { it >= createdUnit }
+        fun unitOf(day: LocalDate): Int = (day.toEpochDay() / unitDays).toInt()
+        val createdUnit = unitOf(activeCreated)
 
-        days100 = units.size
-        val summary = streakSummary(units, (today.toEpochDay() / unitDays).toInt())
+        val complete = active.completePeriodStarts(valid, suspensions)
+            .map { unitOf(it) }
+            .filter { it >= createdUnit }
+            .distinct()
+        val suspended = active.suspendedPeriodStarts(suspensions)
+            .map { unitOf(it) }
+            .filter { it >= createdUnit }
+            .distinct()
+
+        // A sequência anda em unidades **ativas**: a unidade suspensa sai do calendário
+        // da conta, então o imprevisto pausa a corrida em vez de zerá-la.
+        fun activeIndex(unit: Int): Int = unit - suspended.count { it < unit }
+
+        days100 = complete.size
+        val summary = streakSummary(complete.map { activeIndex(it) }.distinct(), activeIndex(unitOf(today)))
         bestRoutineStreak = summary.best
         currentRoutineStreak = summary.current
     }

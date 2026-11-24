@@ -149,6 +149,8 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
             habitRepository = habitRepository,
             connectionRepository = connectionRepository,
             settingsRepository = settingsRepository,
+            // Imprevisto suspende a ocorrência: o XP não pode cobrar o que não deu.
+            eventRepository = eventRepository,
         )
     }
     val settings by settingsRepository.settings.collectAsState(initial = AppSettings())
@@ -281,6 +283,7 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 subtaskRepository = subtaskRepository,
                 habitRepository = habitRepository,
                 connectionRepository = connectionRepository,
+                eventRepository = eventRepository,
                 onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 

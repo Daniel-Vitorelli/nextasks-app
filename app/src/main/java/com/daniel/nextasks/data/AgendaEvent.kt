@@ -18,6 +18,21 @@ enum class SuspensionMode {
     WithinHours,
 }
 
+/** Espécie do evento: o planejado e o que apareceu sem aviso. */
+@Serializable
+enum class EventKind {
+    Planned,
+
+    /**
+     * Imprevisto: aconteceu, não foi planejado.
+     *
+     * Suspende a rotina no período por definição (o usuário não escolhe) e o texto
+     * que explica o que houve é obrigatório. Não gera penalidade: o dia não conta
+     * como perdido e a sequência pausa em vez de quebrar.
+     */
+    Unforeseen,
+}
+
 /**
  * Evento do calendário — pode durar vários dias.
  *
@@ -38,7 +53,25 @@ data class AgendaEvent(
     val endTime: String? = null,
     val color: EventColorKey = EventColorKey.Blue,
     val suspension: SuspensionMode = SuspensionMode.None,
+    /**
+     * Planejado ou imprevisto.
+     *
+     * Padrão `Planned`: evento gravado antes da v3.50 não tem o campo e continua
+     * sendo um evento comum.
+     */
+    val kind: EventKind = EventKind.Planned,
 ) {
+    /**
+     * Suspensão que o evento aplica de fato.
+     *
+     * Imprevisto suspende **sempre**: `WithinHours` resolve os dois casos, porque as
+     * fatias de um evento de dia inteiro cobrem o dia todo e as de um evento com
+     * horário cobrem só a janela. O campo [suspension] é gravado com esse valor para
+     * uma versão anterior do app suspender igual.
+     */
+    val effectiveSuspension: SuspensionMode
+        get() = if (kind == EventKind.Unforeseen) SuspensionMode.WithinHours else suspension
+
     /**
      * Pontas do evento, já interpretadas.
      *

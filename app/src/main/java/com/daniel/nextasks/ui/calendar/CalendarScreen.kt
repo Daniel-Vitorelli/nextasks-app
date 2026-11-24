@@ -69,6 +69,7 @@ import com.daniel.nextasks.data.EventRepository
 import com.daniel.nextasks.data.BlockOverrideRepository
 import com.daniel.nextasks.data.BlockOverride
 import com.daniel.nextasks.data.AgendaEvent
+import com.daniel.nextasks.data.EventKind
 import com.daniel.nextasks.data.RoutineRepository
 import com.daniel.nextasks.ui.components.rememberToday
 import com.daniel.nextasks.ui.theme.NexTasksTheme
@@ -181,6 +182,8 @@ fun CalendarScreen(
     var fabMenu by remember { mutableStateOf(false) }
     var eventFormDate by remember { mutableStateOf<LocalDate?>(null) }
     var editingAgendaEvent by remember { mutableStateOf<AgendaEvent?>(null) }
+    // Espécie do evento novo; ao editar vale a do registro.
+    var newEventKind by remember { mutableStateOf(EventKind.Planned) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val removedMessage = stringResource(R.string.occurrence_deleted)
@@ -402,6 +405,25 @@ fun CalendarScreen(
                     },
                     onClick = {
                         fabMenu = false
+                        newEventKind = EventKind.Planned
+                        editingAgendaEvent = null
+                        eventFormDate = selectedDate
+                    },
+                )
+                // Mesmo formulário do evento: o imprevisto é um evento que suspende a
+                // rotina e exige o texto do que aconteceu.
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.menu_new_unforeseen)) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_unforeseen),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    },
+                    onClick = {
+                        fabMenu = false
+                        newEventKind = EventKind.Unforeseen
                         editingAgendaEvent = null
                         eventFormDate = selectedDate
                     },
@@ -553,6 +575,7 @@ fun CalendarScreen(
                 eventFormDate = null
                 editingAgendaEvent = null
             },
+            defaultKind = newEventKind,
         )
     }
 
