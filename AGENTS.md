@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.51`, `versionCode 72` |
-| Tamanho | ~95 arquivos Kotlin em `main`, ~20.350 linhas, 757 strings |
+| Versão atual | `versionName 4.0`, `versionCode 73` |
+| Tamanho | ~105 arquivos Kotlin em `main`, ~23.880 linhas, 831 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 168 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 183 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -86,11 +86,12 @@ ui/      telas Compose (uma por seção) + componentes + tema
 | `RoutinePeriods.kt` | Unidade da rotina (dia/semana) e "quando ela está completa" |
 | `CompletionKeys.kt` | Migra a chave de conclusão antiga (domingo) para o dia da ocorrência |
 | `Suspensions.kt` | O que os eventos suspendem: dias inteiros, janelas e se o bloco cai dentro |
+| `Ai*.kt` | Assistente: modelos, repositórios, cliente HTTP, catálogo de ferramentas, executor e motor da conversa |
 | `TaskCompletion.kt` | Conclusão de tarefa **com** a cascata das sub-tarefas |
 | `Connection*.kt` | Modelo, repositório, motor e sugestões de conexão |
 | `Gamification*.kt` | XP, níveis, ranks, catálogo de conquistas e retrato de estatísticas |
 | `GamificationRepository.kt` | Histórico de XP, conquistas e o motor que reconcilia |
-| `BackupService.kt` | Exporta/importa as 12 tabelas JSON |
+| `BackupService.kt` | Exporta/importa as 15 tabelas JSON (a chave de IA fica fora) |
 
 Cada entidade tem **um arquivo** em `files/datastore/`:
 
@@ -109,7 +110,7 @@ então **um arquivo corrompido vira lista vazia** em vez de derrubar o app.
 NexTasksApp.kt      hospeda a gaveta, roteia por AppDestination
 AppDestination.kt   enum das seções (rótulo + ícone + addon dono)
 AppIcon.kt          sincroniza o activity-alias com a cor de destaque
-home/ calendar/ routines/ tasks/ habits/ connections/ gamification/ settings/
+home/ calendar/ routines/ tasks/ habits/ connections/ gamification/ ai/ settings/
 components/         cards, campos de formulário, diálogo de nota
 theme/              cores, tipografia, acentos
 ```
@@ -254,7 +255,7 @@ desligados, não aparecem na gaveta e só existem depois de ativados em Configur
 |---|---|
 | Conexões | O motor não roda (não conclui tarefa, não confirma bloco) e a poda de órfãs não roda |
 | Gamificação | O motor não **escreve**: `enabled()` barra `reconcile`, `onTaskChanged`, `onSubtaskChanged`, `onHabitChanged` e `refreshAchievements`. Nada é apagado — `xp_events.json` e `achievements.json` ficam intactos |
-| IA | Nada — só a página (placeholder) |
+| IA | A seção some da gaveta. Nada mais no app depende do addon: nenhuma regra de negócio passa pela IA. |
 
 O portão da gamificação é de **escrita**, não de leitura. Enquanto está desligada, concluir
 tarefa, marcar hábito ou confirmar bloco não lança XP nem desbloqueia conquista — mas os
@@ -350,7 +351,8 @@ Ignora pares já conectados e entidades concluídas.
 
 ### 7.7 Backup
 
-Exporta as 12 tabelas JSON. **Não** exporta `settings.json` (tema, cor, addons, ordem) —
+Exporta as 15 tabelas JSON. **Não** exporta `settings.json` (tema, cor, addons, ordem) nem
+`ai_providers.json` (a chave da API não pode viajar num arquivo) —
 restaurar um backup não devolve preferências. Depois de restaurar, as conexões são
 podadas: o arquivo pode trazer vínculos de blocos que não vieram junto.
 
@@ -389,6 +391,30 @@ Suspender é **esconder a ocorrência**, não marcá-la como perdida. A conta mo
 O bloco avulso ([ExtraBlock]) também é suspenso quando cai no período do evento: ele faz
 parte daquele dia, então some da agenda e deixa de pesar no progresso — suspender não é
 perder.
+
+### 7.11 Assistente de IA
+
+**É a única página que usa internet** (`INTERNET` no manifesto): só o pedido ao provedor
+sai do aparelho. Conversas, memória, provedores e chaves ficam em DataStore local; a chave
+**não entra no backup** (o `BackupService` exporta sessões, mensagens e memória, não
+`ai_providers.json`).
+
+- **Nada é executado sem confirmação.** O modelo responde um JSON
+  (`{"say": "…", "actions": [{"tool": …, "args": {…}}]}`) e cada ação vira um cartão
+  pendente no chat; só o "Confirmar" chama o [AiToolbox]. Recusar não executa nada e o
+  modelo recebe o resultado (inclusive `recusada`).
+- **A IA não tem caminho paralelo.** Toda ferramenta chama os mesmos repositórios e motores
+  das telas: `TaskCompletion` na conclusão de tarefa, `ConnectionEngine` ao confirmar bloco
+  ou concluir entidade, `GamificationEngine` para o XP, e as mesmas cascatas de exclusão.
+- **Catálogo e executor andam juntos**: `AI_TOOLS` descreve as ferramentas no prompt e
+  `AI_EXECUTED_TOOLS` é o que o executor aceita; um teste compara as duas listas.
+- **Provedor é OpenAI-compatível** (`{baseUrl}/chat/completions`), com URL base, chave e
+  modelo por provedor. A lista é a **fila de fallback**: falhou um (rede, chave, limite),
+  tenta o próximo; o erro só aparece quando todos falham.
+- **Memória global** entra no começo de todo pedido; o usuário edita à mão e a IA também
+  pode propor `memory.*`, sempre com confirmação.
+- O histórico enviado é cortado por tamanho (`MaxHistoryChars`) e o resumo do app
+  (rotinas, blocos, tarefas, hábitos, XP) vai no prompt para economizar chamadas.
 
 ---
 
@@ -475,7 +501,8 @@ O print (`screencap`) serve para **conferir** o resultado, não para medir o toq
 
 ## 12. Pendências
 
-- **Assistente IA** é página placeholder — não há chat.
+- **Assistente IA**: sem streaming (a resposta vem de uma vez) e sem ferramenta de
+  backup (depende do seletor de arquivos do sistema). Memória é global, não por conversa.
 - **Conexões**: desmarcar o bloco reabre tarefa/sub-tarefa, mas **não** desfaz hábito —
   a conexão não sabe separar o que foi dela do que o usuário marcou à mão. Só dá para
   resolver registrando a origem de cada marcação.
@@ -483,7 +510,7 @@ O print (`screencap`) serve para **conferir** o resultado, não para medir o toq
   o bloco grava a conclusão mas **não** conclui a tarefa conectada, e a seção some da
   gaveta.
 - **Backup** não inclui preferências (`settings.json`).
-- **Restauração parcial** é avisada: se o arquivo trouxer menos tabelas que as 12, a
+- **Restauração parcial** é avisada: se o arquivo trouxer menos tabelas que as 15, a
   mensagem diz quantas foram aplicadas em vez de anunciar sucesso completo.
 - **Débito conhecido**: cartão de tarefa reimplementado em três telas, formatters de
   data duplicados e seleção por cor sem rótulo para TalkBack. Não é bug de regra;
@@ -535,6 +562,8 @@ v3.48 corrige o empilhamento da aba de conquistas (TabContent virou Column),
 formata milhares e mostra o XP de cada tier em "Como ganhar" · v3.49 bloco semanal em
 vários dias com confirmação por dia, migração da chave e chips com o nome do dia ·
 v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário · v3.51 bloco
-avulso também suspenso por evento/imprevisto.
+avulso também suspenso por evento/imprevisto · v4.0 assistente de IA: chat com sessões,
+memória editável, provedores em fila de fallback e agente que executa qualquer ação do
+app depois da confirmação.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

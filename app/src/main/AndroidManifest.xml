@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
+        Único uso de internet do app: a página do assistente de IA falando com o
+        provedor escolhido pelo usuário. Todo o resto é local.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
         Exportar/restaurar backup abre o seletor de arquivos do sistema.
         Sem estas queries a visibilidade de pacotes (Android 11+) esconde o
         seletor e o toque não faz nada.
@@ -21,6 +27,10 @@
         </intent>
     </queries>
 
+    <!--
+        usesCleartextTraffic: provedor local (Ollama, LM Studio, llama.cpp) atende em
+        http:// na rede de casa. Sem isso, só provedor com https funcionaria.
+    -->
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -29,7 +39,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NexTasks">
+        android:theme="@style/Theme.NexTasks"
+        android:usesCleartextTraffic="true">
 
         <!--
             A atividade não é "launcher": cada cor tem um alias próprio, e o app

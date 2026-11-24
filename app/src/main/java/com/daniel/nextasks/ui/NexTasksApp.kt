@@ -63,6 +63,13 @@ import androidx.compose.ui.unit.dp
 import com.daniel.nextasks.R
 import com.daniel.nextasks.data.Addon
 import com.daniel.nextasks.data.Achievement
+import com.daniel.nextasks.data.AiClient
+import com.daniel.nextasks.data.AiConversation
+import com.daniel.nextasks.data.AiMemoryRepository
+import com.daniel.nextasks.data.AiMessageRepository
+import com.daniel.nextasks.data.AiProviderRepository
+import com.daniel.nextasks.data.AiSessionRepository
+import com.daniel.nextasks.data.AiToolbox
 import com.daniel.nextasks.data.AppSettings
 import com.daniel.nextasks.data.achievementById
 import com.daniel.nextasks.data.isAddonEnabled
@@ -83,6 +90,7 @@ import com.daniel.nextasks.data.TaskCompletion
 import com.daniel.nextasks.data.TaskRepository
 import com.daniel.nextasks.data.TaskSortSettings
 import com.daniel.nextasks.data.XpRepository
+import com.daniel.nextasks.ui.ai.AiChatScreen
 import com.daniel.nextasks.ui.habits.HabitsScreen
 import com.daniel.nextasks.ui.home.HomeScreen
 import com.daniel.nextasks.ui.tasks.TasksScreen
@@ -151,6 +159,48 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
             settingsRepository = settingsRepository,
             // Imprevisto suspende a ocorrência: o XP não pode cobrar o que não deu.
             eventRepository = eventRepository,
+        )
+    }
+
+    // Assistente de IA: sessões, memória e provedores moram no aparelho; só o pedido
+    // ao modelo sai pela rede.
+    val aiProviderRepository = remember(context) { AiProviderRepository(context) }
+    val aiSessionRepository = remember(context) { AiSessionRepository(context) }
+    val aiMessageRepository = remember(context) { AiMessageRepository(context) }
+    val aiMemoryRepository = remember(context) { AiMemoryRepository(context) }
+    val aiConversation = remember(context) {
+        val toolbox = AiToolbox(
+            routineRepository = routineRepository,
+            completionRepository = completionRepository,
+            taskRepository = taskRepository,
+            subtaskRepository = subtaskRepository,
+            taskCompletion = taskCompletion,
+            habitRepository = habitRepository,
+            eventRepository = eventRepository,
+            extraRepository = extraRepository,
+            overrideRepository = overrideRepository,
+            connectionRepository = connectionRepository,
+            connectionEngine = connectionEngine,
+            settingsRepository = settingsRepository,
+            gamificationEngine = gamificationEngine,
+            xpRepository = xpRepository,
+            memoryRepository = aiMemoryRepository,
+        )
+        AiConversation(
+            providerRepository = aiProviderRepository,
+            sessionRepository = aiSessionRepository,
+            messageRepository = aiMessageRepository,
+            memoryRepository = aiMemoryRepository,
+            toolbox = toolbox,
+            client = AiClient(),
+            routineRepository = routineRepository,
+            taskRepository = taskRepository,
+            habitRepository = habitRepository,
+            connectionRepository = connectionRepository,
+            eventRepository = eventRepository,
+            extraRepository = extraRepository,
+            xpRepository = xpRepository,
+            settingsRepository = settingsRepository,
         )
     }
     val settings by settingsRepository.settings.collectAsState(initial = AppSettings())
@@ -271,6 +321,15 @@ fun NexTasksApp(settingsRepository: SettingsRepository) {
                 onApplyNow = { connection ->
                     scope.launch { connectionEngine.applyNow(connection) }
                 },
+            )
+
+            AppDestination.Ai -> AiChatScreen(
+                conversation = aiConversation,
+                providerRepository = aiProviderRepository,
+                sessionRepository = aiSessionRepository,
+                messageRepository = aiMessageRepository,
+                memoryRepository = aiMemoryRepository,
+                onOpenDrawer = { scope.launch { drawerState.open() } },
             )
 
             AppDestination.Gamification -> GamificationScreen(

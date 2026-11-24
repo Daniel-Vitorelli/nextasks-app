@@ -117,6 +117,26 @@ class BackupService(context: Context) {
             ListSerializer(AchievementUnlock.serializer()),
             emptyList(),
         ),
+        // Assistente de IA: conversas e memória. Os provedores ficam de fora de
+        // propósito — a chave da API não pode viajar num arquivo de backup.
+        table(
+            "ai_sessions.json",
+            app.aiSessionStore,
+            ListSerializer(AiSession.serializer()),
+            emptyList(),
+        ),
+        table(
+            "ai_messages.json",
+            app.aiMessageStore,
+            ListSerializer(AiMessage.serializer()),
+            emptyList(),
+        ),
+        table(
+            "ai_memory.json",
+            app.aiMemoryStore,
+            ListSerializer(AiMemoryEntry.serializer()),
+            emptyList(),
+        ),
     )
 
     /** Quantas tabelas o backup cobre — para avisar quando a restauração é parcial. */

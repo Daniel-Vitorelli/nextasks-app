@@ -31,7 +31,7 @@ lembrado de imediato, sem abrir o repositório.
   lido pelo `NexTasksApp`), não por tela.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **162 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **183 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar
@@ -78,7 +78,10 @@ lembrado de imediato, sem abrir o repositório.
 
 ## Pendências
 
-- **Assistente IA** é placeholder (sem chat). Gamificação já tem XP, níveis e conquistas.
+- **Assistente IA** (v4.0) é chat de verdade: a única página que usa internet, com sessões,
+  memória global editável e provedores OpenAI-compatíveis em fila de fallback. O modelo
+  **propõe** cada ação e nada roda sem confirmação; as ferramentas usam os mesmos motores
+  das telas. Chave fica no aparelho e fora do backup.
 - Backup não inclui preferências (`settings.json`).
 - Débito de UI: cartão de tarefa em 3 telas, formatters duplicados, seleção por cor sem
   rótulo no TalkBack.
