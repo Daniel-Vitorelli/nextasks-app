@@ -29,7 +29,7 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 3.50`, `versionCode 71` |
+| Versão atual | `versionName 3.51`, `versionCode 72` |
 | Tamanho | ~95 arquivos Kotlin em `main`, ~20.350 linhas, 757 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 162 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 168 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -202,7 +202,8 @@ ExtraBlock(id, date, routineId?, title, description, startTime, endTime, isAllDa
 
 - `AgendaEvent` é multi-dia e pode **suspender** a rotina no período.
 - `BlockOverride` edita ou apaga um bloco **sem tocar na rotina**.
-- `ExtraBlock` existe só naquele dia.
+- `ExtraBlock` existe só naquele dia — e também é suspenso quando cai no período de um
+  evento ou imprevisto, igual ao bloco da rotina.
 - **Imprevisto** (`kind = Unforeseen`) é um `AgendaEvent` comum, criado no próprio
   calendário: não existe tela nova. O texto que explica o que houve é obrigatório (é o
   `title`), a suspensão é automática e ele **não penaliza** — ver §7.10.
@@ -385,7 +386,9 @@ Suspender é **esconder a ocorrência**, não marcá-la como perdida. A conta mo
 - sequência (Home e gamificação): a unidade suspensa **pausa** a corrida em vez de
   zerá-la — não soma nem quebra.
 
-Só o que a rotina prevê é suspenso: bloco avulso ([ExtraBlock]) não entra na conta.
+O bloco avulso ([ExtraBlock]) também é suspenso quando cai no período do evento: ele faz
+parte daquele dia, então some da agenda e deixa de pesar no progresso — suspender não é
+perder.
 
 ---
 
@@ -531,6 +534,7 @@ v3.47 trilha do rank volta a preencher só os vãos entre os brasões ·
 v3.48 corrige o empilhamento da aba de conquistas (TabContent virou Column),
 formata milhares e mostra o XP de cada tier em "Como ganhar" · v3.49 bloco semanal em
 vários dias com confirmação por dia, migração da chave e chips com o nome do dia ·
-v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário.
+v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário · v3.51 bloco
+avulso também suspenso por evento/imprevisto.
 
 Detalhe completo em `.workbuddy-ai/memory/`.

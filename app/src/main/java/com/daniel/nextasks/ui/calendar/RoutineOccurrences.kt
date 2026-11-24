@@ -113,6 +113,12 @@ fun routineOccurrences(
 
         val block = extra.toRoutineBlock()
         val (start, end) = resolveTimes(day, block) ?: continue
+
+        // Evento ou imprevisto no período esconde o bloco avulso também: ele faz parte
+        // do dia que foi suspenso, não só a rotina. Como ele some dos eventos, também
+        // deixa de pesar no progresso do dia — suspender não é perder.
+        if (block.isSuspendedOn(day, suspensions)) continue
+
         val routine = routines.firstOrNull { it.id == extra.routineId }
 
         events += CalendarEvent(

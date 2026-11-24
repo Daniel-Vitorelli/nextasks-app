@@ -48,6 +48,8 @@ lembrado de imediato, sem abrir o repositório.
 - **Imprevisto** (v3.50) é um evento (`kind = Unforeseen`): suspende a rotina no período,
   exige o texto do que houve e **não penaliza** — a ocorrência suspensa sai da exigência do
   dia/semana e a sequência pausa em vez de quebrar (`Suspensions.kt`).
+- Evento e imprevisto suspendem **também o bloco avulso** do período (v3.51): ele some da
+  agenda e do progresso do dia, como o bloco da rotina.
 - Bloco→hábito usa o **dia da ocorrência** (que é o próprio período recebido), não "hoje"; a
   marcação passa por `ensureCount` e não soma de novo.
 - **XP negativo é lançamento** (recaída −15); só `0` remove.

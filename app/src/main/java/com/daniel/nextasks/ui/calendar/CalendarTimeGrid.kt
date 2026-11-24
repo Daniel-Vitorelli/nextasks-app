@@ -103,7 +103,7 @@ fun CalendarTimeGrid(
             onSelectDay = onSelectDay,
         )
         if (allDayEvents.isNotEmpty()) {
-            AllDayRow(days = days, allDayEvents = allDayEvents)
+            AllDayRow(days = days, allDayEvents = allDayEvents, onEventClick = onEventClick)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         TimeGridBody(
@@ -183,7 +183,11 @@ private fun DayHeaders(
 }
 
 @Composable
-private fun AllDayRow(days: List<LocalDate>, allDayEvents: List<CalendarEvent>) {
+private fun AllDayRow(
+    days: List<LocalDate>,
+    allDayEvents: List<CalendarEvent>,
+    onEventClick: (CalendarEvent) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,6 +211,10 @@ private fun AllDayRow(days: List<LocalDate>, allDayEvents: List<CalendarEvent>) 
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(4.dp))
+                                // Dia inteiro também abre o evento: sem isso o chip
+                                // ficava inerte e o imprevisto (que nasce assim) só
+                                // aparecia na agenda contínua.
+                                .clickable { onEventClick(event) }
                                 .background(background)
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
                         ) {

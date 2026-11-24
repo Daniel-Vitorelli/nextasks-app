@@ -1,11 +1,14 @@
 package com.daniel.nextasks.ui.calendar
 
+import com.daniel.nextasks.data.AgendaEvent
 import com.daniel.nextasks.data.EventConfirmation
+import com.daniel.nextasks.data.EventKind
 import com.daniel.nextasks.data.ExtraBlock
 import com.daniel.nextasks.data.Routine
 import com.daniel.nextasks.data.RoutineBlock
 import com.daniel.nextasks.data.RoutineFrequency
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -99,5 +102,82 @@ class RoutineOccurrencesTest {
         )
 
         assertEquals(dias, events.map { it.completionPeriodStart })
+    }
+
+    // ---------- imprevisto e bloco avulso ----------
+
+    private fun unforeseen(
+        day: String,
+        startTime: String? = null,
+        endTime: String? = null,
+    ) = AgendaEvent(
+        title = "imprevisto",
+        startDate = day,
+        endDate = day,
+        startTime = startTime,
+        endTime = endTime,
+        kind = EventKind.Unforeseen,
+    )
+
+    private fun extra(
+        startTime: String = "08:00",
+        endTime: String = "09:00",
+        isAllDay: Boolean = false,
+    ) = ExtraBlock(
+        id = "e1",
+        date = "2026-11-25",
+        title = "avulso",
+        startTime = startTime,
+        endTime = endTime,
+        isAllDay = isAllDay,
+        confirmation = EventConfirmation.Checklist,
+    )
+
+    @Test
+    fun `imprevisto de dia inteiro esconde o bloco avulso`() {
+        val events = routineOccurrences(
+            routines = emptyList(),
+            days = dias,
+            extras = listOf(extra()),
+            agendaEvents = listOf(unforeseen("2026-11-25")),
+        )
+
+        assertTrue(events.none { it.isExtra })
+    }
+
+    @Test
+    fun `imprevisto esconde o bloco avulso que cai no horario dele`() {
+        val events = routineOccurrences(
+            routines = emptyList(),
+            days = dias,
+            extras = listOf(extra("08:00", "09:00")),
+            agendaEvents = listOf(unforeseen("2026-11-25", "07:30", "09:30")),
+        )
+
+        assertTrue(events.none { it.isExtra })
+    }
+
+    @Test
+    fun `imprevisto fora do horario nao esconde o bloco avulso`() {
+        val events = routineOccurrences(
+            routines = emptyList(),
+            days = dias,
+            extras = listOf(extra("20:00", "21:00")),
+            agendaEvents = listOf(unforeseen("2026-11-25", "08:00", "09:00")),
+        )
+
+        assertTrue(events.any { it.isExtra })
+    }
+
+    @Test
+    fun `imprevisto em outro dia nao esconde o bloco avulso`() {
+        val events = routineOccurrences(
+            routines = emptyList(),
+            days = dias,
+            extras = listOf(extra()),
+            agendaEvents = listOf(unforeseen("2026-11-26")),
+        )
+
+        assertTrue(events.any { it.isExtra })
     }
 }
