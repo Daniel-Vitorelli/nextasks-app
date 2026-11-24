@@ -108,6 +108,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -350,7 +351,13 @@ private fun Entrance(delayMillis: Int, content: @Composable () -> Unit) {
     }
 }
 
-/** Fade curto ao trocar de aba, sem recompor as duas listas ao mesmo tempo. */
+/**
+ * Fade curto ao trocar de aba, sem recompor as duas listas ao mesmo tempo.
+ *
+ * Precisa ser `Column`: a aba de conquistas emite resumo, chips e lista como
+ * irmãos. Num `Box` eles ficavam empilhados no mesmo ponto — o resumo sumia
+ * atrás da lista e os chips caíam por cima do primeiro cartão.
+ */
 @Composable
 private fun TabContent(tab: Tab, content: @Composable () -> Unit) {
     val progress = remember { Animatable(1f) }
@@ -363,7 +370,7 @@ private fun TabContent(tab: Tab, content: @Composable () -> Unit) {
         )
     }
 
-    Box(
+    Column(
         modifier = Modifier.graphicsLayer {
             alpha = progress.value
             translationY = (1f - progress.value) * 14.dp.toPx()
@@ -431,7 +438,7 @@ private fun LevelHero(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = stringResource(R.string.gamification_xp_total, animatedXp),
+                        text = stringResource(R.string.gamification_xp_total, formatNumber(animatedXp)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -472,7 +479,7 @@ private fun LevelHero(
             Text(
                 text = stringResource(
                     R.string.gamification_to_next,
-                    progress.xpToNextLevel,
+                    formatNumber(progress.xpToNextLevel),
                     progress.level + 1,
                 ),
                 style = MaterialTheme.typography.bodySmall,
@@ -1098,7 +1105,7 @@ private fun StatCell(tile: StatTile, index: Int, modifier: Modifier = Modifier) 
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = animatedValue.toString(),
+            text = formatNumber(animatedValue),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -1238,11 +1245,14 @@ private fun AchievementsTab(
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         grouped.forEach { (category, items) ->
+            // O cabeçalho fala da família inteira, não do recorte do filtro:
+            // em "Conquistadas" ele mostrava "1 de 1" onde existem 6 conquistas.
+            val family = ACHIEVEMENTS.filter { it.category == category }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CategoryHeader(
                     category = category,
-                    unlocked = items.count { it.id in unlockedIds },
-                    total = items.size,
+                    unlocked = family.count { it.id in unlockedIds },
+                    total = family.size,
                 )
                 items.forEach { achievement ->
                     AchievementRow(
@@ -1386,8 +1396,8 @@ private fun AchievementsSummary(
                             Text(
                                 text = stringResource(
                                     R.string.gamification_progress_detail,
-                                    detail.first,
-                                    detail.second,
+                                    formatNumber(detail.first),
+                                    formatNumber(detail.second),
                                 ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1500,8 +1510,8 @@ private fun AchievementRow(
                             Text(
                                 text = stringResource(
                                     R.string.gamification_progress_detail,
-                                    detail.first,
-                                    detail.second,
+                                    formatNumber(detail.first),
+                                    formatNumber(detail.second),
                                 ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1647,8 +1657,8 @@ private fun ConditionRow(
                 } else {
                     stringResource(
                         R.string.gamification_progress_detail,
-                        value.coerceAtMost(condition.target),
-                        condition.target,
+                        formatNumber(value.coerceAtMost(condition.target)),
+                        formatNumber(condition.target),
                     )
                 },
                 style = MaterialTheme.typography.labelSmall,
@@ -1733,6 +1743,30 @@ private fun TierTag(tier: AchievementTier) {
             text = stringResource(tier.label).uppercase(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
+            color = color,
+        )
+    }
+}
+
+/**
+ * Chip do tier com a recompensa, para a tabela "Como ganhar".
+ *
+ * Sem o valor, a linha "XP do tier" mostrava só os nomes e não respondia a
+ * pergunta que o usuário faz ali: quanto vale cada tier.
+ */
+@Composable
+private fun TierRewardTag(tier: AchievementTier) {
+    val color = tierColor(tier)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = "${stringResource(tier.label).uppercase()} +${tier.xp}",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
             color = color,
         )
     }
@@ -1850,7 +1884,10 @@ private fun XpBreakdown(events: List<XpEvent>) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = stringResource(R.string.gamification_history_breakdown_total, total),
+                    text = stringResource(
+                        R.string.gamification_history_breakdown_total,
+                        formatNumber(total),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = amountColor(total),
@@ -2024,7 +2061,7 @@ private fun HowToEarn() {
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 AchievementTier.entries.forEach { tier ->
-                    TierTag(tier = tier)
+                    TierRewardTag(tier = tier)
                 }
             }
 
@@ -2081,9 +2118,13 @@ private fun amountColor(amount: Int): Color = when {
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
+/** Milhar no padrão brasileiro: 200930 vira 200.930. */
+private fun formatNumber(value: Int): String =
+    String.format(Locale.forLanguageTag("pt-BR"), "%,d", value)
+
 private fun signed(value: Int): String = when {
-    value > 0 -> "+$value"
-    value < 0 -> value.toString()
+    value > 0 -> "+${formatNumber(value)}"
+    value < 0 -> formatNumber(value)
     else -> "0"
 }
 

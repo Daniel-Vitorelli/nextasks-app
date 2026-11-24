@@ -697,12 +697,12 @@
     <string name="gamification_subtitle">Cada bloco confirmado, tarefa concluída e hábito marcado vira XP.</string>
     <string name="gamification_level">Nível %1$d</string>
     <string name="gamification_level_word">NÍVEL</string>
-    <string name="gamification_xp_total">%1$d de XP</string>
-    <string name="gamification_to_next">Faltam %1$d de XP para o nível %2$d</string>
+    <string name="gamification_xp_total">%1$s de XP</string>
+    <string name="gamification_to_next">Faltam %1$s de XP para o nível %2$d</string>
     <string name="gamification_last_rank">Último rank</string>
     <string name="gamification_week_xp">XP na semana</string>
     <string name="gamification_next_achievement">Próxima conquista</string>
-    <string name="gamification_progress_detail">%1$d de %2$d</string>
+    <string name="gamification_progress_detail">%1$s de %2$s</string>
     <string name="gamification_empty_title">Seu placar começa agora</string>
     <string name="gamification_empty_body">Confirme um bloco, conclua uma tarefa ou marque um hábito. Cada ação vira XP e o nível sobe sozinho.</string>
     <string name="gamification_stats_title">Números</string>
@@ -741,7 +741,7 @@
     <string name="gamification_history_today">Hoje</string>
     <string name="gamification_history_yesterday">Ontem</string>
     <string name="gamification_history_more">Mostrar mais</string>
-    <string name="gamification_history_breakdown_total">Total: %1$d de XP</string>
+    <string name="gamification_history_breakdown_total">Total: %1$s de XP</string>
     <string name="gamification_how_hint">Os valores valem para cada ação. Desfazer uma ação tira o XP dela.</string>
     <string name="gamification_how_score_label">Nota do bloco</string>
     <string name="gamification_how_per_point">+%1$d por ponto</string>
