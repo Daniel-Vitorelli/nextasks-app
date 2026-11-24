@@ -157,6 +157,31 @@ class RoutineRepository(context: Context) {
             }
         }
     }
+
+    /**
+     * Cópia de um bloco **dentro da mesma rotina**, com horário, dias e confirmação.
+     *
+     * O histórico do bloco original não vem junto: a cópia nasce sem confirmações.
+     * Útil para "academia" de manhã e de noite sem redigitar tudo.
+     */
+    suspend fun duplicateBlock(routineId: String, blockId: String) {
+        store.updateData { current ->
+            current.map { routine ->
+                val original = routine.blocks.firstOrNull { it.id == blockId }
+                if (routine.id != routineId || original == null) {
+                    routine
+                } else {
+                    val copy = original.copy(
+                        id = UUID.randomUUID().toString(),
+                        title = "${original.title} (cópia)",
+                    )
+                    routine.copy(
+                        blocks = (routine.blocks + copy).sortedWith(compareBy { it.startTime }),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /**

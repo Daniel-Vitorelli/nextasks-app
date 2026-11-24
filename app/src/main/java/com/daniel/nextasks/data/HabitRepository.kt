@@ -6,6 +6,7 @@ import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStore
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import java.util.UUID
 
 internal val Context.habitStore: DataStore<List<Habit>> by dataStore(
     fileName = "habits.json",
@@ -40,6 +41,23 @@ class HabitRepository(context: Context) {
     suspend fun delete(habitId: String) {
         habits.updateData { current -> current.filterNot { it.id == habitId } }
         completions.updateData { current -> current.filterNot { it.habitId == habitId } }
+    }
+
+    /**
+     * Cópia do hábito **sem** o histórico.
+     *
+     * Copiar as marcações inflaria a sequência e as estatísticas dos dois hábitos —
+     * a cópia nasce zerada, pronta para ser ajustada.
+     */
+    suspend fun duplicate(habitId: String) {
+        habits.updateData { current ->
+            val original = current.firstOrNull { it.id == habitId } ?: return@updateData current
+            current + original.copy(
+                id = UUID.randomUUID().toString(),
+                name = "${original.name} (cópia)",
+                createdAt = System.currentTimeMillis(),
+            )
+        }
     }
 
     /**

@@ -43,6 +43,7 @@ fun BlockRow(
     block: RoutineBlock,
     showWeekday: Boolean,
     onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -105,6 +106,14 @@ fun BlockRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            IconButton(onClick = onDuplicate) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_copy),
+                    contentDescription = stringResource(R.string.block_duplicate),
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(

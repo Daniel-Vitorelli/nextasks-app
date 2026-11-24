@@ -216,6 +216,9 @@ fun RoutinesScreen(
                     editingBlockId = block.id
                     blockFormVisible = true
                 },
+                onDuplicateBlock = { block ->
+                    scope.launch { repository.duplicateBlock(opened.id, block.id) }
+                },
                 onDeleteBlock = { block ->
                     scope.launch {
                         repository.deleteBlock(opened.id, block.id)
@@ -299,6 +302,7 @@ private fun RoutineDetail(
     routine: Routine,
     modifier: Modifier = Modifier,
     onEditBlock: (com.daniel.nextasks.data.RoutineBlock) -> Unit,
+    onDuplicateBlock: (com.daniel.nextasks.data.RoutineBlock) -> Unit,
     onDeleteBlock: (com.daniel.nextasks.data.RoutineBlock) -> Unit,
 ) {
     Column(
@@ -325,6 +329,7 @@ private fun RoutineDetail(
                     block = block,
                     showWeekday = routine.frequency == RoutineFrequency.Weekly,
                     onEdit = { onEditBlock(block) },
+                    onDuplicate = { onDuplicateBlock(block) },
                     onDelete = { onDeleteBlock(block) },
                 )
                 Spacer(Modifier.height(8.dp))

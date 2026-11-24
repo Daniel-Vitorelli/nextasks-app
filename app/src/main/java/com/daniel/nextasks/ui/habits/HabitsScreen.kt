@@ -198,6 +198,7 @@ fun HabitsScreen(
                             editingId = habit.id
                             formVisible = true
                         },
+                        onDuplicate = { scope.launch { repository.duplicate(habit.id) } },
                         onDelete = { deleteTarget = habit },
                     )
                 }
@@ -255,6 +256,7 @@ private fun HabitCard(
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -331,6 +333,20 @@ private fun HabitCard(
                             onClick = {
                                 menuOpen = false
                                 onEdit()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.habit_duplicate)) },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_copy),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onDuplicate()
                             },
                         )
                         DropdownMenuItem(

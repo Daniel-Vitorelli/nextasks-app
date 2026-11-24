@@ -31,7 +31,7 @@ lembrado de imediato, sem abrir o repositório.
   lido pelo `NexTasksApp`), não por tela.
 - Build: `JAVA_HOME=/c/Users/Daniel/.jdks/temurin-21`,
   `ANDROID_HOME=/c/Users/Daniel/Android/Sdk`, `./gradlew assembleDebug`.
-- **Testes**: `./gradlew testDebugUnitTest` — **183 casos JVM** das regras puras (cascata,
+- **Testes**: `./gradlew testDebugUnitTest` — **187 casos JVM** das regras puras (cascata,
   hábitos, conexões, ocorrências, ordenação, horário de bloco, gamificação). Sem emulador, ~30 s.
 - Emulador: AVD `NexTasks_API36`; abrir com `tools/abrir-no-emulador.cmd` (usa `-no-snapshot`).
   Se o script terminar, o processo do emulador morre junto — para deixá-lo de pé, rodar

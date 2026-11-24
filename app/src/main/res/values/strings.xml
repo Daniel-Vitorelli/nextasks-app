@@ -15,6 +15,7 @@
     <string name="habits_empty_body">Crie um hábito para acompanhar.</string>
     <string name="habit_new">Novo hábito</string>
     <string name="habit_edit">Editar hábito</string>
+    <string name="habit_duplicate">Duplicar hábito</string>
     <string name="habit_name_label">Nome</string>
     <string name="habit_name_placeholder">Ex.: Beber água</string>
     <string name="habit_name_required">Dê um nome ao hábito.</string>
@@ -153,6 +154,7 @@
     <string name="block_end">Fim</string>
     <string name="block_color">Cor</string>
     <string name="block_delete">Excluir bloco</string>
+    <string name="block_duplicate">Duplicar bloco</string>
     <string name="block_time_range">%1$s – %2$s</string>
     <string name="block_time_title">Horário</string>
     <string name="block_confirm">OK</string>

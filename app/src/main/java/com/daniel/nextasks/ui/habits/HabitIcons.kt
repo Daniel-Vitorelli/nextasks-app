@@ -9,6 +9,13 @@ import com.daniel.nextasks.R
  * A chave é gravada no hábito, então **nunca renomeie** uma entrada existente —
  * só acrescente novas no fim. As nove primeiras são as chaves originais
  * (curtas); as demais usam o próprio nome do Material Symbols.
+ *
+ * **A chave é única.** O seletor usa a chave como identidade de item da grade, e
+ * `LazyVerticalGrid` estoura com "Key was already used" quando duas entradas
+ * repetem a mesma chave — era o que fechava o app ao abrir o seletor (v4.0 tinha
+ * `book`, `coffee`, `light`, `grass` e `waves` duas vezes). O `distinctBy` no fim
+ * é a rede de proteção: se alguém repetir uma chave, a segunda some em vez de
+ * derrubar a tela.
  */
 val HabitIcons: List<Pair<String, Int>> = listOf(
 
@@ -99,7 +106,6 @@ val HabitIcons: List<Pair<String, Int>> = listOf(
     "shopping_basket" to R.drawable.ic_habit_shopping_basket,
     "nutrition" to R.drawable.ic_habit_nutrition,
     "auto_stories" to R.drawable.ic_habit_auto_stories,
-    "book" to R.drawable.ic_habit_book,
     "library_books" to R.drawable.ic_habit_library_books,
     "school" to R.drawable.ic_habit_school,
     "cast_for_education" to R.drawable.ic_habit_cast_for_education,
@@ -265,7 +271,6 @@ val HabitIcons: List<Pair<String, Int>> = listOf(
     "label" to R.drawable.ic_habit_label,
     "rocket_launch" to R.drawable.ic_habit_rocket_launch,
     "emoji_objects" to R.drawable.ic_habit_emoji_objects,
-    "coffee" to R.drawable.ic_habit_coffee,
     "face_6" to R.drawable.ic_habit_face_6,
     "sentiment_satisfied" to R.drawable.ic_habit_sentiment_satisfied,
     "mood" to R.drawable.ic_habit_mood,
@@ -309,10 +314,7 @@ val HabitIcons: List<Pair<String, Int>> = listOf(
     "balcony" to R.drawable.ic_habit_balcony,
     "deck" to R.drawable.ic_habit_deck,
     "countertops" to R.drawable.ic_habit_countertops,
-    "light" to R.drawable.ic_habit_light,
-    "grass" to R.drawable.ic_habit_grass,
-    "waves" to R.drawable.ic_habit_waves,
-)
+).distinctBy { it.first }
 
 /**
  * Chaves da primeira versão da grade (v3.13). Não aparecem mais no seletor,

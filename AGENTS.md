@@ -29,8 +29,8 @@ Idioma do produto e das respostas: **português**.
 | Serialização | kotlinx.serialization |
 | minSdk / target / compile | 26 / 37 / 37 |
 | Java | 17 |
-| Versão atual | `versionName 4.0`, `versionCode 73` |
-| Tamanho | ~105 arquivos Kotlin em `main`, ~23.880 linhas, 831 strings |
+| Versão atual | `versionName 4.1`, `versionCode 74` |
+| Tamanho | ~105 arquivos Kotlin em `main`, ~23.970 linhas, 833 strings |
 
 Dependências: `core-ktx`, `lifecycle-runtime-ktx`, `activity-compose`, `datastore`,
 `kotlinx-serialization-json`, Compose BOM, `animation`, `material3`, `ui-tooling`.
@@ -51,7 +51,7 @@ cd /c/Users/Daniel/programacao/app
 ./gradlew connectedDebugAndroidTest   # gestos, com emulador ligado
 ```
 
-Os testes ficam em `app/src/test/` (regras, 183 casos) e `app/src/androidTest/` (toque
+Os testes ficam em `app/src/test/` (regras, 187 casos) e `app/src/androidTest/` (toque
 de verdade, hoje só a pinça da grade). Rode antes de fechar qualquer versão.
 
 Abrir no emulador (atalho da área de trabalho aponta para cá):
@@ -564,6 +564,7 @@ vários dias com confirmação por dia, migração da chave e chips com o nome d
 v3.50 imprevisto: evento que suspende a rotina e não penaliza o usuário · v3.51 bloco
 avulso também suspenso por evento/imprevisto · v4.0 assistente de IA: chat com sessões,
 memória editável, provedores em fila de fallback e agente que executa qualquer ação do
-app depois da confirmação.
+app depois da confirmação · v4.1 duplicar hábito e bloco de tempo (tarefas e rotinas
+já tinham) e conserta o fechamento do seletor de ícones (chaves repetidas na grade).
 
 Detalhe completo em `.workbuddy-ai/memory/`.
